@@ -5,47 +5,6 @@
 #include <deque>
 #include "RandomEngine.h"
 
-//template <typename T, size_t Texclude_size, typename Tgenerator, typename Tcontainer>
-//class base_container
-//{
-//public:
-//    using value_type = T;
-//    using container_type = Tcontainer;
-//    using generator_type = Tgenerator;
-//
-//    container_type m_vContainer;
-//    generator_type m_gen;
-//
-//    base_container() = default;
-//    virtual ~base_container() = default;
-//
-//    template <typename InputIterator>
-//    base_container(InputIterator first, InputIterator last)
-//        : m_vContainer(first, last)
-//    {
-//    }
-//
-//    base_container(std::initializer_list<value_type> il)
-//        : m_vContainer(il.begin(), il.end())
-//    {
-//    }
-//
-//    template <typename Val>
-//    void push_back(Val&& val)
-//    {
-//        m_vContainer.push_back(std::forward<Val>(val));
-//    }
-//
-//    // Returns the exclude size
-//    constexpr size_t ExcludeSize() const { return Texclude_size; }
-//
-//    // Returns the number of elements in the container
-//    virtual size_t Size() const { return m_vContainer.size(); }
-//
-//    // Returns the next element in the container
-//    virtual value_type GetNext() = 0;
-//};
-
 template <typename T, size_t Texclude_size, typename Tgenerator, typename Tcontainer>
 class random_container_insert final
 {
