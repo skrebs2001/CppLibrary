@@ -2,6 +2,7 @@
 
 #include <eastl/fixed_vector.h>
 #include <map>
+#include <deque>
 #include "RandomEngine.h"
 
 template <typename T, size_t Texclude_size, typename Tgenerator, typename Tcontainer>
@@ -281,7 +282,7 @@ public:
 
     friend bool operator==(const random_container_agecount& lhs, const random_container_agecount& rhs)
     {
-        return (lhs.m_vContainer == rhs.m_vContainer) && (lhs.m_vAge == rhs.m_vAge);
+        return (lhs.m_vContainer == rhs.m_vContainer) && (lhs.m_vInUse == rhs.m_vInUse) && (lhs.m_qExclude == rhs.m_qExclude);
     }
 
     friend bool operator!=(const random_container_agecount& lhs, const random_container_agecount& rhs) { return !(lhs == rhs); }
@@ -289,21 +290,18 @@ public:
     template <typename InputIterator>
     random_container_agecount(InputIterator first, InputIterator last)
         : base_container<T, Texclude_size, Tgenerator, Tcontainer>(first, last)
-        , m_vAgeList(Texclude_size)
     {
-        m_vAge.assign(m_vContainer.size(), 0);
+        m_vInUse.assign(m_vContainer.size(), 0);
     }
 
     random_container_agecount(std::initializer_list<value_type> il)
         : base_container<T, Texclude_size, Tgenerator, Tcontainer>(il)
-        , m_vAgeList(Texclude_size)
     {
-        m_vAge.assign(m_vContainer.size(), 0);
+        m_vInUse.assign(m_vContainer.size(), 0);
     }
 
     random_container_agecount()
         : base_container<T, Texclude_size, Tgenerator, Tcontainer>()
-        , m_vAgeList(Texclude_size)
     {
     }
 
@@ -311,14 +309,15 @@ public:
     void push_back(Val&& val)
     {
         m_vContainer.push_back(std::forward<Val>(val));
-        m_vAge.push_back(0);
+        m_vInUse.push_back(0);
     }
 
     value_type GetNext() override
     {
         // Since elements cannot be removed, the position of each element will not change
         // Assume the age vector element will always correspond to the contained element
-        assert(m_vContainer.size() == m_vAge.size());
+        assert(m_vContainer.size() == m_vInUse.size());
+		assert(m_vContainer.size() - m_qExclude.size() > 0);
 
         // Chose random index of next element
         size_t nextIndex = GetNextIndex();
@@ -326,68 +325,46 @@ public:
         // Create a copy to return
         value_type nextElement = m_vContainer[nextIndex];
 
-        AgeElements(nextIndex);
+        AgeElement(nextIndex);
 
         return nextElement;
     }
 
 private:
+	std::deque<size_t> m_qExclude;
+	std::vector<uint8_t> m_vInUse;
+
     // Get random index of next element
-    size_t GetNextIndex()
+    size_t GetNextIndex() const
     {
+		// Choose a random index, then probe the in-use vector, if its already used,
+		// pick the next available element
         size_t nextIndex = m_gen(m_vContainer.size());
-        for (; m_vAge[nextIndex] != 0; nextIndex = Next(nextIndex))
+        for (; m_vInUse[nextIndex] != 0; nextIndex = Next(nextIndex))
         {
         }
         return nextIndex;
     }
 
-    void AgeElements(size_t nextIndex)
-    {
-        // The selected element is now age 1, increment the age of all other selected elements
-        m_vAge[nextIndex] = 1;
+	void AgeElement(size_t index)
+	{
+		// Mark the newly-chosen element as not eligible
+		m_vInUse[index] = 1;
+		
+		// If the queue is full, make the oldest entry eligible
+		if (Full())
+		{
+			size_t eligibleIndex = m_qExclude.front();
+			m_qExclude.pop_front();
+			m_vInUse[eligibleIndex] = 0;
+		}
 
-        for (auto& i : m_vAgeList)
-        {
-            if (i.m_uAge == ExcludeSize())
-            {
-                i.m_uAge = 0;
-                m_vAge[i.m_uIndex] = 0;
-            }
-            else
-            {
-                ++i.m_uAge;
-                ++m_vAge[i.m_uIndex];
-            }
-        }
+		m_qExclude.push_back(index);
+	}
 
-        // loop from [nextIndex + 1, nextIndex), wrap for size
-        for (auto i = Next(nextIndex); i != nextIndex; i = Next(i))
-        {
-            if (m_vAge[i] == ExcludeSize())
-            {
-                // element has aged-out, reset to zero
-                m_vAge[i] = 0;
-            }
-            else if (m_vAge[i] > 0)
-            {
-                ++m_vAge[i];
-            }
-        }
-    }
+	bool Full() const { return m_qExclude.size() == ExcludeSize(); }
 
-    size_t Next(size_t index) const { return (index + 1) % m_vAge.size(); }
-
-    struct AgeEntry
-    {
-        AgeEntry() : m_uIndex(0), m_uAge(0) {}
-
-        size_t m_uIndex;
-        size_t m_uAge;
-    };
-
-    eastl::vector<AgeEntry> m_vAgeList;
-    eastl::vector<size_t> m_vAge;
+    size_t Next(size_t index) const { return (index + 1) % m_vInUse.size(); }
 };
 
 template <typename T, size_t Texclude_size = 3, typename Tgenerator = RandomDevice, typename Tcontainer = eastl::vector<T> >
