@@ -114,14 +114,6 @@ public:
     {
     }
 
-    random_container_swap& operator=(const random_container_swap& rhs)
-    {
-        m_vContainer = rhs.m_vContainer;
-        m_gen = rhs.m_gen;
-        m_ExcludeQueue = rhs.m_ExcludeQueue;
-        return *this;
-    }
-
     template <typename Val>
     void push_back(Val&& val)
     {
