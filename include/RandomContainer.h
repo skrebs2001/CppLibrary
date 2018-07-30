@@ -5,27 +5,71 @@
 #include <deque>
 #include "RandomEngine.h"
 
+//template <typename T, size_t Texclude_size, typename Tgenerator, typename Tcontainer>
+//class base_container
+//{
+//public:
+//    using value_type = T;
+//    using container_type = Tcontainer;
+//    using generator_type = Tgenerator;
+//
+//    container_type m_vContainer;
+//    generator_type m_gen;
+//
+//    base_container() = default;
+//    virtual ~base_container() = default;
+//
+//    template <typename InputIterator>
+//    base_container(InputIterator first, InputIterator last)
+//        : m_vContainer(first, last)
+//    {
+//    }
+//
+//    base_container(std::initializer_list<value_type> il)
+//        : m_vContainer(il.begin(), il.end())
+//    {
+//    }
+//
+//    template <typename Val>
+//    void push_back(Val&& val)
+//    {
+//        m_vContainer.push_back(std::forward<Val>(val));
+//    }
+//
+//    // Returns the exclude size
+//    constexpr size_t ExcludeSize() const { return Texclude_size; }
+//
+//    // Returns the number of elements in the container
+//    virtual size_t Size() const { return m_vContainer.size(); }
+//
+//    // Returns the next element in the container
+//    virtual value_type GetNext() = 0;
+//};
+
 template <typename T, size_t Texclude_size, typename Tgenerator, typename Tcontainer>
-class base_container
+class random_container_insert final
 {
 public:
     using value_type = T;
     using container_type = Tcontainer;
     using generator_type = Tgenerator;
 
-    container_type m_vContainer;
-    generator_type m_gen;
+    friend bool operator==(const random_container_insert& lhs, const random_container_insert& rhs)
+    {
+        return (lhs.m_vContainer == rhs.m_vContainer) && (lhs.m_vExcludeQueue == rhs.m_vExcludeQueue);
+    }
 
-    base_container() = default;
-    virtual ~base_container() = default;
+    friend bool operator!=(const random_container_insert& lhs, const random_container_insert& rhs) { return !(lhs == rhs); }
+
+    random_container_insert() = default;
 
     template <typename InputIterator>
-    base_container(InputIterator first, InputIterator last)
+    random_container_insert(InputIterator first, InputIterator last)
         : m_vContainer(first, last)
     {
     }
 
-    base_container(std::initializer_list<value_type> il)
+    random_container_insert(std::initializer_list<value_type> il)
         : m_vContainer(il.begin(), il.end())
     {
     }
@@ -40,44 +84,10 @@ public:
     constexpr size_t ExcludeSize() const { return Texclude_size; }
 
     // Returns the number of elements in the container
-    virtual size_t Size() const { return m_vContainer.size(); }
+    size_t Size() const { return m_vContainer.size() + m_vExcludeQueue.size(); }
 
     // Returns the next element in the container
-    virtual value_type GetNext() = 0;
-};
-
-template <typename T, size_t Texclude_size, typename Tgenerator, typename Tcontainer>
-class random_container_insert : public base_container<T, Texclude_size, Tgenerator, Tcontainer>
-{
-public:
-    using base_container<T, Texclude_size, Tgenerator, Tcontainer>::m_gen;
-    using base_container<T, Texclude_size, Tgenerator, Tcontainer>::m_vContainer;
-    using base_container<T, Texclude_size, Tgenerator, Tcontainer>::ExcludeSize;
-    using value_type = T;
-
-    friend bool operator==(const random_container_insert& lhs, const random_container_insert& rhs)
-    {
-        return (lhs.m_vContainer == rhs.m_vContainer) && (lhs.m_vExcludeQueue == rhs.m_vExcludeQueue);
-    }
-
-    friend bool operator!=(const random_container_insert& lhs, const random_container_insert& rhs) { return !(lhs == rhs); }
-
-    template <typename InputIterator>
-    random_container_insert(InputIterator first, InputIterator last)
-        : base_container<T, Texclude_size, Tgenerator, Tcontainer>(first, last)
-    {
-    }
-
-    random_container_insert(std::initializer_list<value_type> il)
-        : base_container<T, Texclude_size, Tgenerator, Tcontainer>(il)
-    {
-    }
-
-    random_container_insert() = default;
-
-    size_t Size() const override { return m_vContainer.size() + m_vExcludeQueue.size(); }
-
-    value_type GetNext() override
+    value_type GetNext()
     {
         assert((m_vContainer.size() > 0) || (m_vExcludeQueue.size() > ExcludeSize()));
 
@@ -100,19 +110,18 @@ public:
     }
 
 private:
+    container_type m_vContainer;
+    generator_type m_gen;
     eastl::fixed_vector<value_type, Texclude_size + 1> m_vExcludeQueue;
 };
 
 template <typename T, size_t Texclude_size, typename Tgenerator, typename Tcontainer>
-class random_container_swap : public base_container<T, Texclude_size, Tgenerator, Tcontainer>
+class random_container_swap final
 {
 public:
-    using base_container<T, Texclude_size, Tgenerator, Tcontainer>::m_gen;
-    using base_container<T, Texclude_size, Tgenerator, Tcontainer>::m_vContainer;
-    using base_container<T, Texclude_size, Tgenerator, Tcontainer>::ExcludeSize;
-    using base_container<T, Texclude_size, Tgenerator, Tcontainer>::Size;
-    using container_type = typename base_container<T, Texclude_size, Tgenerator, Tcontainer>::container_type;
     using value_type = T;
+    using container_type = Tcontainer;
+    using generator_type = Tgenerator;
 
     friend bool operator==(const random_container_swap& lhs, const random_container_swap& rhs)
     {
@@ -122,33 +131,52 @@ public:
     friend bool operator!=(const random_container_swap& lhs, const random_container_swap& rhs) { return !(lhs == rhs); }
 
     random_container_swap()
-        : base_container()
-        , m_ExcludeQueue(m_vContainer, Texclude_size + 1)
+        : m_ExcludeQueue(m_vContainer, Texclude_size + 1)
     {
     }
 
-    ~random_container_swap() = default;
-
     random_container_swap(const random_container_swap& src)
-        : base_container<T, Texclude_size, Tgenerator, Tcontainer>(src)
+        : m_vContainer(src.m_vContainer)
+        , m_gen(src.m_gen)
         , m_ExcludeQueue(m_vContainer, src.m_ExcludeQueue)
     {
     }
 
     template <typename InputIterator>
     random_container_swap(InputIterator first, InputIterator last)
-        : base_container<T, Texclude_size, Tgenerator, Tcontainer>(first, last)
+        : m_vContainer(first, last)
         , m_ExcludeQueue(m_vContainer, Texclude_size + 1)
     {
     }
 
     random_container_swap(std::initializer_list<value_type> il)
-        : base_container<T, Texclude_size, Tgenerator, Tcontainer>(il)
+        : m_vContainer(il.begin(), il.end())
         , m_ExcludeQueue(m_vContainer, Texclude_size + 1)
     {
     }
 
-    value_type GetNext() override
+    random_container_swap& operator=(const random_container_swap& rhs)
+    {
+        m_vContainer = rhs.m_vContainer;
+        m_gen = rhs.m_gen;
+        m_ExcludeQueue = rhs.m_ExcludeQueue;
+        return *this;
+    }
+
+    template <typename Val>
+    void push_back(Val&& val)
+    {
+        m_vContainer.push_back(std::forward<Val>(val));
+    }
+
+    // Returns the exclude size
+    constexpr size_t ExcludeSize() const { return Texclude_size; }
+
+    // Returns the number of elements in the container
+    size_t Size() const { return m_vContainer.size(); }
+
+    // Returns the next element in the container
+    value_type GetNext()
     {
         assert(m_ExcludeQueue.Size() < Size() || m_ExcludeQueue.Full());
 
@@ -268,41 +296,39 @@ private:
         size_t m_nTail;
     };
 
+    container_type m_vContainer;
+    generator_type m_gen;
     Queue m_ExcludeQueue;
 };
 
 template <typename T, size_t Texclude_size, typename Tgenerator, typename Tcontainer>
-class random_container_agecount : public base_container<T, Texclude_size, Tgenerator, Tcontainer>
+class random_container_agecount final
 {
 public:
-    using base_container<T, Texclude_size, Tgenerator, Tcontainer>::m_gen;
-    using base_container<T, Texclude_size, Tgenerator, Tcontainer>::m_vContainer;
-    using base_container<T, Texclude_size, Tgenerator, Tcontainer>::ExcludeSize;
     using value_type = T;
+    using container_type = Tcontainer;
+    using generator_type = Tgenerator;
 
     friend bool operator==(const random_container_agecount& lhs, const random_container_agecount& rhs)
     {
-        return (lhs.m_vContainer == rhs.m_vContainer) && (lhs.m_vInUse == rhs.m_vInUse) && (lhs.m_qExclude == rhs.m_qExclude);
+        return (lhs.m_vContainer == rhs.m_vContainer) && (lhs.m_vInUse == rhs.m_vInUse) && (lhs.m_vExcludeQueue == rhs.m_vExcludeQueue);
     }
 
     friend bool operator!=(const random_container_agecount& lhs, const random_container_agecount& rhs) { return !(lhs == rhs); }
 
+    random_container_agecount() = default;
+
     template <typename InputIterator>
     random_container_agecount(InputIterator first, InputIterator last)
-        : base_container<T, Texclude_size, Tgenerator, Tcontainer>(first, last)
+        : m_vContainer(first, last)
     {
         m_vInUse.assign(m_vContainer.size(), 0);
     }
 
     random_container_agecount(std::initializer_list<value_type> il)
-        : base_container<T, Texclude_size, Tgenerator, Tcontainer>(il)
+        : m_vContainer(il.begin(), il.end())
     {
         m_vInUse.assign(m_vContainer.size(), 0);
-    }
-
-    random_container_agecount()
-        : base_container<T, Texclude_size, Tgenerator, Tcontainer>()
-    {
     }
 
     template <typename Val>
@@ -312,12 +338,19 @@ public:
         m_vInUse.push_back(0);
     }
 
-    value_type GetNext() override
+    // Returns the exclude size
+    constexpr size_t ExcludeSize() const { return Texclude_size; }
+
+    // Returns the number of elements in the container
+    size_t Size() const { return m_vContainer.size(); }
+
+    // Returns the next element in the container
+    value_type GetNext()
     {
         // Since elements cannot be removed, the position of each element will not change
         // Assume the age vector element will always correspond to the contained element
         assert(m_vContainer.size() == m_vInUse.size());
-		assert(m_vContainer.size() - m_qExclude.size() > 0);
+		assert(m_vContainer.size() - m_vExcludeQueue.size() > 0);
 
         // Chose random index of next element
         size_t nextIndex = GetNextIndex();
@@ -325,13 +358,16 @@ public:
         // Create a copy to return
         value_type nextElement = m_vContainer[nextIndex];
 
-        AgeElement(nextIndex);
+        UpdateExcludeList(nextIndex);
 
         return nextElement;
     }
 
 private:
-	std::deque<size_t> m_qExclude;
+    container_type m_vContainer;
+    generator_type m_gen;
+
+	std::deque<size_t> m_vExcludeQueue;
 	std::vector<uint8_t> m_vInUse;
 
     // Get random index of next element
@@ -346,23 +382,24 @@ private:
         return nextIndex;
     }
 
-	void AgeElement(size_t index)
+	void UpdateExcludeList(size_t index)
 	{
-		// Mark the newly-chosen element as not eligible
+		// Mark the newly-chosen element as ineligible
 		m_vInUse[index] = 1;
 		
 		// If the queue is full, make the oldest entry eligible
 		if (Full())
 		{
-			size_t eligibleIndex = m_qExclude.front();
-			m_qExclude.pop_front();
+			size_t eligibleIndex = m_vExcludeQueue.front();
+			m_vExcludeQueue.pop_front();
 			m_vInUse[eligibleIndex] = 0;
 		}
 
-		m_qExclude.push_back(index);
+        // The new index is now ineligible
+		m_vExcludeQueue.push_back(index);
 	}
 
-	bool Full() const { return m_qExclude.size() == ExcludeSize(); }
+	bool Full() const { return m_vExcludeQueue.size() == ExcludeSize(); }
 
     size_t Next(size_t index) const { return (index + 1) % m_vInUse.size(); }
 };
