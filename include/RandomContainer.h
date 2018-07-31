@@ -84,33 +84,24 @@ public:
 
     friend bool operator==(const random_container_swap& lhs, const random_container_swap& rhs)
     {
-        return (lhs.m_vContainer == rhs.m_vContainer) && (lhs.m_ExcludeQueue == rhs.m_ExcludeQueue);
+        return (lhs.m_vContainer == rhs.m_vContainer) &&
+               (lhs.m_QCurrentSize == rhs.m_QCurrentSize) &&
+               (lhs.m_QHead == rhs.m_QHead) &&
+               (lhs.m_QTail == rhs.m_QTail);
     }
 
     friend bool operator!=(const random_container_swap& lhs, const random_container_swap& rhs) { return !(lhs == rhs); }
 
-    random_container_swap()
-        : m_ExcludeQueue(m_vContainer, Texclude_size + 1)
-    {
-    }
-
-    random_container_swap(const random_container_swap& src)
-        : m_vContainer(src.m_vContainer)
-        , m_gen(src.m_gen)
-        , m_ExcludeQueue(m_vContainer, src.m_ExcludeQueue)
-    {
-    }
+    random_container_swap() = default;
 
     template <typename InputIterator>
     random_container_swap(InputIterator first, InputIterator last)
         : m_vContainer(first, last)
-        , m_ExcludeQueue(m_vContainer, Texclude_size + 1)
     {
     }
 
     random_container_swap(std::initializer_list<value_type> il)
         : m_vContainer(il.begin(), il.end())
-        , m_ExcludeQueue(m_vContainer, Texclude_size + 1)
     {
     }
 
@@ -129,25 +120,25 @@ public:
     // Returns the next element in the container
     value_type GetNext()
     {
-        assert(m_ExcludeQueue.Size() < Size() || m_ExcludeQueue.Full());
+        assert(qSize() < Size() || qFull());
 
-        if (m_ExcludeQueue.Full())
+        if (qFull())
         {
             // The head element has exceeded the exclude count, consider it for the next selection
-            value_type headElement = m_ExcludeQueue.Front();
-            m_ExcludeQueue.Pop();
-            size_t nextIndex = m_gen(m_vContainer.size() - m_ExcludeQueue.Size()) + m_ExcludeQueue.Size();
+            value_type headElement = qFront();
+            qPop();
+            size_t nextIndex = m_gen(m_vContainer.size() - qSize()) + qSize();
 
             if (nextIndex == ExcludeSize())
             {
-                // We selected the previous head element, insert it back on the queue
-                m_ExcludeQueue.Push(headElement);
+                // We selected the previous head element, push it back on the exclude queue
+                qPush(headElement);
                 return headElement;
             }
 
             // Add selected element to the queue
             value_type selectedElement = m_vContainer[nextIndex];
-            m_ExcludeQueue.Push(selectedElement);
+            qPush(selectedElement);
 
             // Replace the selected element with the previous head, so it may be considered on the next call
             m_vContainer[nextIndex] = headElement;
@@ -156,100 +147,66 @@ public:
         }
 
         // Chose random index of next element, get a copy to return
-        size_t nextIndex = m_gen(m_vContainer.size() - m_ExcludeQueue.Size()) + m_ExcludeQueue.Size();
+        size_t nextIndex = m_gen(m_vContainer.size() - qSize()) + qSize();
         value_type nextElement = m_vContainer[nextIndex];
 
         // Swap the random element with the tail of the queue
-        m_ExcludeQueue.Swap(m_vContainer[nextIndex]);
+        qSwap(m_vContainer[nextIndex]);
 
         return nextElement;
     }
 
 private:
-    class Queue
+
+    // Return a reference to the element at the head of the queue
+    const value_type& qFront() const
     {
-    public:
-        friend bool operator==(const Queue& lhs, const Queue& rhs)
-        {
-            return (lhs.m_nMaxSize == rhs.m_nMaxSize) && (lhs.m_nCurrentSize == rhs.m_nCurrentSize) && (lhs.m_nHead == rhs.m_nHead) &&
-                   (lhs.m_nTail == rhs.m_nTail);
-        }
+        assert(!qEmpty());
+        return m_vContainer[m_QHead];
+    }
 
-        explicit Queue(container_type& vContainer, size_t nMaxSize)
-            : m_vQueue(vContainer)
-            , m_nMaxSize(nMaxSize)
-            , m_nCurrentSize(0)
-            , m_nHead(0)
-            , m_nTail(0)
-        {
-        }
+    // Remove an element from the head of the queue
+    void qPop()
+    {
+        assert(!qEmpty());
+        m_QHead = qNext(m_QHead);
+        --m_QCurrentSize;
+    }
 
-        explicit Queue(container_type& vContainer, const Queue& src)
-            : m_vQueue(vContainer)
-            , m_nMaxSize(src.m_nMaxSize)
-            , m_nCurrentSize(src.m_nCurrentSize)
-            , m_nHead(src.m_nHead)
-            , m_nTail(src.m_nTail)
-        {
-        }
+    // Add an element to the tail of the queue
+    void qPush(const value_type& element)
+    {
+        assert(!qFull());
+        m_vContainer[m_QTail] = element;
+        m_QTail = qNext(m_QTail);
+        ++m_QCurrentSize;
+    }
 
-        Queue& operator=(const Queue& rhs)
-        {
-            m_nMaxSize = rhs.m_nMaxSize;
-            m_nCurrentSize = rhs.m_nCurrentSize;
-            m_nHead = rhs.m_nHead;
-            m_nTail = rhs.m_nTail;
-            return *this;
-        }
+    // Add an element by swapping it with the tail of the queue
+    void qSwap(value_type& element)
+    {
+        std::swap(element, m_vContainer[m_QTail]);
+        m_QTail = qNext(m_QTail);
+        ++m_QCurrentSize;
+    }
 
-        const value_type& Front() const
-        {
-            assert(!Empty());
-            return m_vQueue[m_nHead];
-        }
+    // Returns whether the queue is empty
+    bool qEmpty() const { return m_QCurrentSize == 0; }
 
-        void Pop()
-        {
-            assert(!Empty());
-            m_nHead = Next(m_nHead);
-            --m_nCurrentSize;
-        }
+    // Returns whether the queue is full
+    bool qFull() const { return m_QCurrentSize == ExcludeSize() + 1; }
 
-        void Push(const value_type& element)
-        {
-            assert(!Full());
-            m_vQueue[m_nTail] = element;
-            m_nTail = Next(m_nTail);
-            ++m_nCurrentSize;
-        }
+    // Returns the number of elements in the queue
+    size_t qSize() const { return m_QCurrentSize; }
 
-        // Add an element by swapping it with the tail of the queue
-        void Swap(value_type& element)
-        {
-            std::swap(element, m_vQueue[m_nTail]);
-            m_nTail = Next(m_nTail);
-            ++m_nCurrentSize;
-        }
-
-        bool Empty() const { return m_nCurrentSize == 0; }
-
-        bool Full() const { return m_nCurrentSize == m_nMaxSize; }
-
-        size_t Size() const { return m_nCurrentSize; }
-
-    private:
-        size_t Next(size_t index) const { return (index + 1) % m_nMaxSize; }
-
-        container_type& m_vQueue;
-        size_t m_nMaxSize;
-        size_t m_nCurrentSize;
-        size_t m_nHead;
-        size_t m_nTail;
-    };
+    // Returns the next queue index
+    size_t qNext(size_t index) const { return (index + 1) % (ExcludeSize() + 1); }
 
     container_type m_vContainer;
     generator_type m_gen;
-    Queue m_ExcludeQueue;
+    size_t m_QCurrentSize = 0;
+    size_t m_QHead = 0;
+    size_t m_QTail = 0;
 };
 
 template <typename T, size_t Texclude_size, typename Tgenerator, typename Tcontainer>
