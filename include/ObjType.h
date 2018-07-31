@@ -382,6 +382,8 @@ void IntegerTests()
     T val1 = 1;
     T val2(12);
     T val3 = 3;
+    T val4 = 4;
+    T val5 = 5;
 
     val1 = val2 % val3;
     val1 = val2 % 2;
@@ -419,7 +421,7 @@ void IntegerTests()
     val1 = val2 + f;
 
     val1 = val2 & val3;
-    val1 = val2 | val3;
+    val1 = val2 | val3 | val4 | val5;
     val1 = val2 ^ val3;
     val1 = ~val2;
 
