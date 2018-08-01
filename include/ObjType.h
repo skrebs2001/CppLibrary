@@ -5,7 +5,7 @@
 #endif
 
 #include <limits>
-#include "Types.h"
+#include <stdint.h>
 
 #if defined(_WIN32) && defined(min)
 #undef min
@@ -267,16 +267,16 @@ private:
     T m_val;
 };
 
-using Int8 = ObjType<Aristocrat::GDK::int8>;
-using UInt8 = ObjType<Aristocrat::GDK::uint8>;
-using Int16 = ObjType<Aristocrat::GDK::int16>;
-using UInt16 = ObjType<Aristocrat::GDK::uint16>;
-using Int32 = ObjType<Aristocrat::GDK::int32>;
-using UInt32 = ObjType<Aristocrat::GDK::uint32>;
-using Int64 = ObjType<Aristocrat::GDK::uint64>;
-using UInt64 = ObjType<Aristocrat::GDK::uint64>;
-using Float32 = ObjType<Aristocrat::GDK::float32>;
-using Float64 = ObjType<Aristocrat::GDK::float64>;
+using Int8 = ObjType<int8_t>;
+using UInt8 = ObjType<uint8_t>;
+using Int16 = ObjType<int16_t>;
+using UInt16 = ObjType<uint16_t>;
+using Int32 = ObjType<int32_t>;
+using UInt32 = ObjType<uint32_t>;
+using Int64 = ObjType<uint64_t>;
+using UInt64 = ObjType<uint64_t>;
+using Float32 = ObjType<float>;
+using Float64 = ObjType<double>;
 
 template <typename T>
 void BaseTests()
