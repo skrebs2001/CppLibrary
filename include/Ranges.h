@@ -8,6 +8,24 @@ namespace range
     template <typename T>
     using Range = std::vector<T>;
 
+    template <typename T>
+    class copy_if
+    {
+        bool (*m_pred)(T);
+
+    public:
+        template <typename UnaryPredicate>
+        explicit copy_if(UnaryPredicate pred) : m_pred(pred)
+        {}
+
+        Range<T> operator()(Range<T> vSrc)
+        {
+            Range<T> vOut;
+            std::copy_if(vSrc.begin(), vSrc.end(), std::back_inserter(vOut), m_pred);
+            return vOut;
+        }
+    };
+
     class reverse
     {
     public:
@@ -48,6 +66,12 @@ namespace range
     };
 
     template <typename T>
+    Range<T> operator|(Range<T> lhs, copy_if<T> op)
+    {
+        return op(lhs);
+    }
+
+    template <typename T>
     Range<T> operator|(Range<T> lhs, reverse op)
     {
         return op(lhs);
@@ -72,10 +96,11 @@ namespace RangeTest
     {
         using IntRange = range::Range<int>;
 
-        auto Mult = [](int x) { return x + 3; };
+        auto Mult = [](int x) { return x * 3; };
+        auto IsEven = [](int x) { return x % 2 == 0; };
 
         IntRange Input1 = { 4, 1, 2, 6, 5, 3 };
-        IntRange Output = Input1 | range::sort() | range::reverse() | range::transform<int>(Mult);
+        IntRange Output = Input1 | range::sort() | range::reverse() | range::transform<int>(Mult) | range::copy_if<int>(IsEven);
 
         printf("done");
     }
