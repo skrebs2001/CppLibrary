@@ -233,7 +233,6 @@ public:
     Mercury::Timeline* FindTimeline(Mercury::Timeline* pTimeline, const eastl::string& sName) const
     {
         Mercury::Timeline* pDestTimeline = nullptr;
-        EXECUTE_THEN_CHECK(Aristocrat::GDK::Slot::FindTimeline(pTimeline, sName, &pDestTimeline));
         return pDestTimeline;
     }
 
@@ -242,7 +241,6 @@ public:
     Mercury::Text* FindText(Mercury::Timeline* pTimeline, const eastl::string& sName) const
     {
         Mercury::Text* pDestText = nullptr;
-        EXECUTE_THEN_CHECK(Aristocrat::GDK::Slot::FindText(pTimeline, sName, &pDestText));
         return pDestText;
     }
 };
