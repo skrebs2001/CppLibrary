@@ -3,10 +3,8 @@
 #include <algorithm>
 #include <array>
 #include <forward_list>
-#include <functional>
 #include <list>
 #include <vector>
-#include <Debug.h>
 
 namespace range {
 
@@ -147,8 +145,6 @@ namespace range2 {
 template <typename T>
 class Range
 {
-    //static_assert(is_sequence_container<T>::value, "T must be a sequence container");
-
     using value_type = T;
     using container_type = std::vector<value_type>;
     using iter_type = typename container_type::iterator;
@@ -157,8 +153,13 @@ public:
     Range() = default;
 
     // Initializer list constructor, construct a container with a copy of each element from the list
-    Range(std::initializer_list<value_type> il)
+    explicit Range(std::initializer_list<value_type> il)
         : m_c(il.begin(), il.end())
+    {
+    }
+
+    // Construct from container, copy from lvalue, move from rvalue
+    explicit Range(container_type src) : m_c(std::move(src))
     {
     }
 
@@ -168,11 +169,17 @@ public:
         return *this;
     }
 
+    Range& operator=(Range&& rng) noexcept
+    {
+        m_c = std::move(rng.m_c);
+        return *this;
+    }
+
     Range(const Range& rng) : m_c(rng.m_c)
     {
     }
 
-    Range(const Range&& rng) noexcept : m_c(rng.m_c)
+    Range(Range&& rng) noexcept : m_c(std::forward<container_type>(rng.m_c))
     {
     }
 
@@ -194,6 +201,36 @@ public:
     }
 };
 
+class sort
+{
+public:
+    template <typename T>
+    Range<T> operator()(Range<T> vSrc)
+    {
+        std::sort(vSrc.begin(), vSrc.end());
+        return vSrc;
+    }
+};
+
+template <typename T>
+class transform
+{
+    T (*m_op)(T);
+
+public:
+    template <typename UnaryFunction>
+    explicit transform(UnaryFunction op)
+        : m_op(op)
+    {
+    }
+
+    Range<T> operator()(Range<T> vSrc)
+    {
+        std::transform(vSrc.begin(), vSrc.end(), vSrc.begin(), m_op);
+        return vSrc;
+    }
+};
+
 template <typename T>
 Range<T> operator|(Range<T> lhs, reverse op)
 {
@@ -201,13 +238,44 @@ Range<T> operator|(Range<T> lhs, reverse op)
 }
 
 template <typename T>
-Range<T> make_range()
+Range<T> operator|(Range<T> lhs, sort op)
 {
-    return Range<T>{ { 1, 2, 3, 4, 5 } };
+    return op(lhs);
+}
+
+template <typename T>
+Range<T> operator|(Range<T> lhs, transform<T> op)
+{
+    return op(lhs);
+}
+
+template <typename T>
+auto make_vector()
+{
+    std::vector<T> v = { 3, 6, 9 };
+    return v;
+}
+
+template <typename T>
+auto make_range()
+{
+    return Range<T>{ { 11, 12, 13, 14, 15 } };
 }
 
 inline void Range2Test()
 {
+    std::vector<int> v1 = { 2, 4, 6, 8, 10 };
+
+    // construct from lvalue
+    Range<int> R1(v1);
+
+    // construct from rvalue
+    Range<int> R2(make_vector<int>());
+
+    // construct from rvalue
+    Range<int> R3{ std::vector<int>{ 10, 20, 30, 40, 50 } };
+
+    // construct from initializer list
     Range<int> intRange{ { 1, 2, 3, 4, 5 } };
 
     auto r1 = intRange;
@@ -218,14 +286,17 @@ inline void Range2Test()
     Range<int> r3 = make_range<int>();
 
     auto Mult = [](int x) { return x * 3; };
-    auto IsEven = [](int x) { return x % 2 == 0; };
+    //auto IsEven = [](int x) { return x % 2 == 0; };
 
-    auto Output = intRange | range2::reverse();
+    auto Output = intRange | range2::reverse() | range2::transform<int>(Mult) | range2::sort();
 
-    for (auto i = Output.begin(); i != Output.end(); ++i)
-    {
-        Mercury::Trace("%d\n", *i);
-    }
+    Range<int> X;
+    X = intRange | range2::reverse() | range2::transform<int>(Mult) | range2::sort();
+
+    //for (auto i = Output.begin(); i != Output.end(); ++i)
+    //{
+    //    Mercury::Trace("%d\n", *i);
+    //}
 
     printf("done");
 }
