@@ -36,7 +36,7 @@ public:
     const_reference back() const { return tail(); }
 
     // Returns whether the queue is empty
-    bool empty() const noexcept { return m_Size == 0; }
+    bool empty() const noexcept { return size() == 0; }
 
     // Returns a reference to the first element in the queue
     reference front() { return const_cast<reference>(head()); }
@@ -44,10 +44,10 @@ public:
     // Returns a const reference to the first element in the queue
     const_reference front() const { return head(); }
 
-    // Returns whether the size of the queue is at maximum capacity
-    bool full() const noexcept { return m_Size == m_vContainer.size(); }
+    // Returns whether the queue is at maximum capacity
+    bool full() const noexcept { return size() == m_vContainer.size(); }
 
-    // Removes the first element, reduces queue size by one.
+    // Removes the first element, reduces queue size by one
     void pop() noexcept
     {
         assert(!empty());
@@ -67,6 +67,9 @@ public:
         m_vContainer.reserve(capacity);
         m_vContainer.assign(capacity, value_type{});
     }
+
+    // Returns the number of elements in the queue
+    size_type size() const noexcept { return m_Size; }
 
     void swap(CircularQueue& other) noexcept
     {
