@@ -1,13 +1,19 @@
+#if defined(_WIN32)
+#pragma warning(disable : 4189)  // local variable is initialized but not referenced
+#endif
+
 #include "CircularQueue.h"
 #include <string>
 #include "eastl/string.h"
+#include <algorithm>
+#include <deque>
 
 namespace CircularQueueTest {
 
 static void DoPODTests()
 {
     CircularQueue<int> test(5);
-
+    assert(test.begin() == test.end());
     assert(test.empty());
     assert(test.size() == 0);
     test.push(1);
@@ -27,10 +33,6 @@ static void DoPODTests()
     assert(test.back() == 5);
     assert(test.front() == 2);
 
-    const CircularQueue<int>& constRef = test;
-    assert(constRef.back() == 5);
-    assert(constRef.front() == 2);
-
     auto testCopy(test);
     assert(testCopy == test);
     assert(test == testCopy);
@@ -40,8 +42,53 @@ static void DoPODTests()
     testCopy.push(theValue);
     assert(testCopy != test);
 
-    CircularQueue<int> test2;
-    test2.set_capacity(10);
+    CircularQueue<int> test2(7);
+    test2.push(10);
+    test2.push(20);
+    test2.push(30);
+    test2.push(40);
+    test2.push(50);
+    test2.push(60);
+    test2.push(70);
+
+    const CircularQueue<int>& constRef = test2;
+    assert(constRef.back() == 70);
+    assert(constRef.front() == 10);
+
+    for (auto i : test2)
+    {
+        printf("i is %u\n", i);
+    }
+
+    test2.pop();    // removes 10
+    test2.pop();    // removes 20
+    test2.push(80); 
+    test2.push(90);
+
+    for (auto i : test2)
+    {
+        printf("i is %u\n", i);
+    }
+
+    std::for_each(test2.begin(), test2.end(), [](int x) { printf("%u", x); });
+
+    struct Dummy
+    {
+        char m_c;
+        int m_i;
+    };
+
+    Dummy element = { 'c', 42 };
+    std::deque<Dummy> dequeDummy;
+    dequeDummy.push_back(element);
+    auto Iter = dequeDummy.begin();
+    int intCopy = Iter->m_i;
+
+    CircularQueue<Dummy> queueDummy(5);
+    queueDummy.push(element);
+    auto iDummy = queueDummy.begin();
+    intCopy = iDummy->m_i;
+    iDummy->m_c = 'g';
 }
 
 template <typename String>

@@ -1,20 +1,73 @@
 #pragma once
 
 #include <cassert>
+#include <iterator>
 #include <vector>
+
+template <typename T>
+class CircularQueue;
+
+template <typename T>
+class CircularQueueIterator final : public std::iterator<std::forward_iterator_tag, T>
+{
+    CircularQueue<T>* m_pCircularQueue = nullptr;
+    T* m_pElement = nullptr;
+
+public:
+    using std::iterator<std::forward_iterator_tag, T>::reference;
+    using std::iterator<std::forward_iterator_tag, T>::pointer;
+
+    explicit CircularQueueIterator(CircularQueue<T>* pCircularQueue, T* pElement)
+        : m_pCircularQueue(pCircularQueue)
+        , m_pElement(pElement)
+    {
+    }
+
+    CircularQueueIterator(const CircularQueueIterator&) = default;
+    CircularQueueIterator& operator=(const CircularQueueIterator&) = default;
+    ~CircularQueueIterator() = default;
+
+    // Pre-increment operator
+    CircularQueueIterator& operator++()
+    {
+        m_pElement = m_pCircularQueue->next(m_pElement);
+        return *this;
+    }
+
+    // Post-increment operator
+    CircularQueueIterator operator++(int)
+    {
+        CircularQueueIterator temp(*this);
+        ++(*this);
+        return temp;
+    }
+
+    reference operator*() { return *m_pElement; }
+
+    pointer operator->() const { return m_pElement; }
+
+    friend bool operator==(const CircularQueueIterator& lhs, const CircularQueueIterator& rhs) { return lhs.m_pElement == rhs.m_pElement; }
+
+    friend bool operator!=(const CircularQueueIterator& lhs, const CircularQueueIterator& rhs) { return !(lhs == rhs); }
+};
 
 // Fixed size circular queue
 template <typename T>
-class CircularQueue
+class CircularQueue final
 {
+    friend class CircularQueueIterator<T>;
+
 public:
     using value_type = T;
     using container_type = std::vector<value_type>;
+    using size_type = typename container_type::size_type;
     using reference = typename container_type::reference;
     using const_reference = typename container_type::const_reference;
-    using size_type = typename container_type::size_type;
+    using pointer = typename container_type::pointer;
+    using const_pointer = typename container_type::const_pointer;
+    using iterator = CircularQueueIterator<T>;
 
-    CircularQueue() = default;
+    CircularQueue() = delete;
     ~CircularQueue() = default;
     CircularQueue(const CircularQueue&) = default;
     CircularQueue(CircularQueue&&) = default;
@@ -23,54 +76,47 @@ public:
 
     // Construct a circular queue with the given element capacity
     explicit CircularQueue(size_type capacity)
-        : m_vContainer(capacity)
-        , m_Tail(capacity - 1)
+        : m_vContainer(capacity + 1)
+        , m_Tail(capacity)
     {
-        assert(m_vContainer.size() == capacity);
     }
 
     // Returns a reference to the last element in the queue
-    reference back() { return const_cast<reference>(tail()); }
+    reference back() { return *tail(); }
+    const_reference back() const { return *tail(); }
 
-    // Returns a const reference to the last element in the queue
-    const_reference back() const { return tail(); }
+    // Returns an iterator pointing to the first element in the queue
+    iterator begin() noexcept { return iterator(this, head()); }
 
     // Returns whether the queue is empty
     bool empty() const noexcept { return size() == 0; }
 
-    // Returns a reference to the first element in the queue
-    reference front() { return const_cast<reference>(head()); }
+    // Returns an iterator pointing to the past-the-end element in the queue
+    iterator end() noexcept { return empty() ? begin() : iterator(this, next(tail())); }
 
-    // Returns a const reference to the first element in the queue
-    const_reference front() const { return head(); }
+    // Returns a reference to the first element in the queue
+    reference front() { return *head(); }
+    const_reference front() const { return *head(); }
 
     // Returns whether the queue is at maximum capacity
-    bool full() const noexcept { return size() == m_vContainer.size(); }
+    bool full() const noexcept { return size() == m_vContainer.size() - 1; }
 
     // Removes the first element, reduces queue size by one
     void pop() noexcept
     {
         assert(!empty());
-        increment(m_Head);
+        m_Head = increment(m_Head);
         --m_Size;
     }
 
     // Inserts a new element at the end of the queue
-    void push(const value_type& val) { add_element(val); }
-
-    // Inserts a new element at the end of the queue
-    void push(value_type&& val) { add_element(std::move(val)); }
-
-    // Change the capacity of the queue
-    void set_capacity(size_type capacity)
-    {
-        m_vContainer.reserve(capacity);
-        m_vContainer.assign(capacity, value_type{});
-    }
+    void push(const value_type& val) { add(val); }
+    void push(value_type&& val) { add(std::move(val)); }
 
     // Returns the number of elements in the queue
     size_type size() const noexcept { return m_Size; }
 
+    // Exchanges the contents of the queue with those of other
     void swap(CircularQueue& other) noexcept
     {
         std::swap(m_vContainer, other.m_vContainer);
@@ -80,41 +126,17 @@ public:
     }
 
     friend bool operator==(const CircularQueue& lhs, const CircularQueue& rhs) { return lhs.compare(rhs); }
-
     friend bool operator!=(const CircularQueue& lhs, const CircularQueue& rhs) { return !(lhs == rhs); }
 
 private:
     template <typename Val>
-    void add_element(Val&& val)
+    void add(Val&& val)
     {
         assert(!full());
-        increment(m_Tail);
+        m_Tail = increment(m_Tail);
         assert(m_Tail < m_vContainer.size());
         m_vContainer[m_Tail] = std::forward<Val>(val);
         ++m_Size;
-    }
-
-    void increment(size_type& val) const noexcept
-    {
-        ++val;
-        if (val == m_vContainer.size())
-        {
-            val = 0;
-        }
-    }
-
-    const_reference head() const
-    {
-        assert(!empty());
-        assert(m_Head < m_vContainer.size());
-        return m_vContainer[m_Head];
-    }
-
-    const_reference tail() const
-    {
-        assert(!empty());
-        assert(m_Tail < m_vContainer.size());
-        return m_vContainer[m_Tail];
     }
 
     bool compare(const CircularQueue& other) const
@@ -128,7 +150,7 @@ private:
         auto thisIndex = m_Head;
         auto otherIndex = other.m_Head;
 
-        for (; thisIndex != m_Tail; increment(thisIndex), increment(otherIndex))
+        for (; thisIndex != m_Tail; thisIndex = increment(thisIndex), otherIndex = increment(otherIndex))
         {
             if (m_vContainer[thisIndex] != other.m_vContainer[otherIndex])
             {
@@ -138,6 +160,54 @@ private:
 
         return true;
     }
+
+    const_pointer head() const
+    {
+        assert(m_Head < m_vContainer.size());
+        return &m_vContainer[m_Head];
+    }
+
+    pointer head()
+    {
+        assert(m_Head < m_vContainer.size());
+        return &m_vContainer[m_Head];
+    }
+
+    const_pointer tail() const
+    {
+        assert(!empty());
+        assert(m_Tail < m_vContainer.size());
+        return &m_vContainer[m_Tail];
+    }
+
+    pointer tail()
+    {
+        assert(!empty());
+        assert(m_Tail < m_vContainer.size());
+        return &m_vContainer[m_Tail];
+    }
+
+    pointer prev(pointer p)
+    {
+        assert(!empty());
+        size_type nextIndex = decrement(p - m_vContainer.data());
+        assert(nextIndex < m_vContainer.size());
+        return &m_vContainer[nextIndex];
+    }
+
+    pointer next(pointer p)
+    {
+        assert(!empty());
+        size_type nextIndex = increment(p - m_vContainer.data());
+        assert(nextIndex < m_vContainer.size());
+        return &m_vContainer[nextIndex];
+    }
+
+    // Decrement the given index, wrapping around the container size
+    size_type decrement(size_type index) const noexcept { return (index == 0) ? m_vContainer.size() - 1 : index - 1; }
+
+    // Increment the given index, wrapping around the container size
+    size_type increment(size_type index) const noexcept { return (index == m_vContainer.size() - 1) ? 0 : index + 1; }
 
     container_type m_vContainer;
     size_type m_Head = 0;
