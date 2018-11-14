@@ -4,25 +4,23 @@
 #include <iterator>
 #include <vector>
 
-template <typename T>
-class CircularQueue;
-
-template <typename T>
-class CircularQueueIterator final : public std::iterator<std::forward_iterator_tag, T>
+template <typename Queue, typename Pointer, typename Reference>
+class CircularQueueIterator
 {
-    CircularQueue<T>* m_pCircularQueue = nullptr;
-    T* m_pElement = nullptr;
-
 public:
-    using std::iterator<std::forward_iterator_tag, T>::reference;
-    using std::iterator<std::forward_iterator_tag, T>::pointer;
+    using iterator_category = std::forward_iterator_tag;
+    using value_type = typename Queue::value_type;
+    using difference_type = typename Queue::difference_type;
+    using pointer = Pointer;
+    using reference = Reference;
 
-    explicit CircularQueueIterator(CircularQueue<T>* pCircularQueue, T* pElement)
+    explicit CircularQueueIterator(Queue* pCircularQueue, pointer pElement)
         : m_pCircularQueue(pCircularQueue)
         , m_pElement(pElement)
     {
     }
 
+    CircularQueueIterator() = default;
     CircularQueueIterator(const CircularQueueIterator&) = default;
     CircularQueueIterator& operator=(const CircularQueueIterator&) = default;
     ~CircularQueueIterator() = default;
@@ -42,30 +40,37 @@ public:
         return temp;
     }
 
-    reference operator*() { return *m_pElement; }
+    reference operator*() const { return *m_pElement; }
 
     pointer operator->() const { return m_pElement; }
 
     friend bool operator==(const CircularQueueIterator& lhs, const CircularQueueIterator& rhs) { return lhs.m_pElement == rhs.m_pElement; }
 
     friend bool operator!=(const CircularQueueIterator& lhs, const CircularQueueIterator& rhs) { return !(lhs == rhs); }
+
+private:
+    Queue* m_pCircularQueue = nullptr;
+    pointer m_pElement = nullptr;
 };
 
 // Fixed size circular queue
 template <typename T>
 class CircularQueue final
 {
-    friend class CircularQueueIterator<T>;
+    using container_type = std::vector<T>;
 
 public:
     using value_type = T;
-    using container_type = std::vector<value_type>;
+    using difference_type = typename container_type::difference_type;
     using size_type = typename container_type::size_type;
     using reference = typename container_type::reference;
     using const_reference = typename container_type::const_reference;
     using pointer = typename container_type::pointer;
     using const_pointer = typename container_type::const_pointer;
-    using iterator = CircularQueueIterator<T>;
+    using iterator = CircularQueueIterator<CircularQueue<T>, pointer, reference>;
+    using const_iterator = CircularQueueIterator<CircularQueue<T>, const_pointer, const_reference>;
+    template <class, class, class>
+    friend class CircularQueueIterator;
 
     CircularQueue() = delete;
     ~CircularQueue() = default;
@@ -87,12 +92,14 @@ public:
 
     // Returns an iterator pointing to the first element in the queue
     iterator begin() noexcept { return iterator(this, head()); }
+    const_iterator begin() const noexcept { return const_iterator(const_cast<CircularQueue*>(this), head()); }
 
     // Returns whether the queue is empty
     bool empty() const noexcept { return size() == 0; }
 
     // Returns an iterator pointing to the past-the-end element in the queue
     iterator end() noexcept { return empty() ? begin() : iterator(this, next(tail())); }
+    const_iterator end() const noexcept { return empty() ? begin() : const_iterator(const_cast<CircularQueue*>(this), next(tail())); }
 
     // Returns a reference to the first element in the queue
     reference front() { return *head(); }
@@ -196,6 +203,14 @@ private:
     }
 
     pointer next(pointer p)
+    {
+        assert(!empty());
+        size_type nextIndex = increment(p - m_vContainer.data());
+        assert(nextIndex < m_vContainer.size());
+        return &m_vContainer[nextIndex];
+    }
+
+    const_pointer next(const_pointer p) const
     {
         assert(!empty());
         size_type nextIndex = increment(p - m_vContainer.data());

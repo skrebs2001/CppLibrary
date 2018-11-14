@@ -1,12 +1,14 @@
 #if defined(_WIN32)
 #pragma warning(disable : 4189)  // local variable is initialized but not referenced
+#pragma warning(disable : 4101)  // unreferenced local variable
 #endif
 
-#include "CircularQueue.h"
-#include <string>
-#include "eastl/string.h"
+#include <eastl/vector.h>
 #include <algorithm>
 #include <deque>
+#include <string>
+#include "CircularQueue.h"
+#include "eastl/string.h"
 
 namespace CircularQueueTest {
 
@@ -55,14 +57,40 @@ static void DoPODTests()
     assert(constRef.back() == 70);
     assert(constRef.front() == 10);
 
-    for (auto i : test2)
+    for (auto i : constRef)
     {
         printf("i is %u\n", i);
     }
 
-    test2.pop();    // removes 10
-    test2.pop();    // removes 20
-    test2.push(80); 
+    for (auto& i : constRef)
+    {
+        printf("i is %u\n", i);
+    }
+
+    for (const auto& i : constRef)
+    {
+        printf("i is %u\n", i);
+    }
+
+    for (auto iByValue : test2)
+    {
+        printf("i is %u\n", iByValue);
+    }
+
+    for (auto& iByRef : test2)
+    {
+        iByRef = 5;
+        printf("i is %u\n", iByRef);
+    }
+
+    for (const auto& iByConstRef : test2)
+    {
+        printf("i is %u\n", iByConstRef);
+    }
+
+    test2.pop();  // removes 10
+    test2.pop();  // removes 20
+    test2.push(80);
     test2.push(90);
 
     for (auto i : test2)
@@ -71,6 +99,7 @@ static void DoPODTests()
     }
 
     std::for_each(test2.begin(), test2.end(), [](int x) { printf("%u", x); });
+    std::for_each(constRef.begin(), constRef.end(), [](int x) { printf("%u", x); });
 
     struct Dummy
     {
@@ -82,13 +111,25 @@ static void DoPODTests()
     std::deque<Dummy> dequeDummy;
     dequeDummy.push_back(element);
     auto Iter = dequeDummy.begin();
+    std::deque<Dummy>::iterator IterEnd;
+    std::vector<int>::iterator vIter;
+    eastl::vector<int>::iterator iJunk;
     int intCopy = Iter->m_i;
+
+    std::iterator_traits<decltype(Iter)>::value_type ii;
 
     CircularQueue<Dummy> queueDummy(5);
     queueDummy.push(element);
     auto iDummy = queueDummy.begin();
     intCopy = iDummy->m_i;
     iDummy->m_c = 'g';
+
+    std::iterator_traits<decltype(iDummy)>::value_type iiVT;
+    std::iterator_traits<decltype(iDummy)>::difference_type iiDT;
+    std::iterator_traits<decltype(iDummy)>::pointer iiPointer;
+    std::iterator_traits<decltype(iDummy)>::reference iiReference = iiVT;
+    std::iterator_traits<decltype(iDummy)>::iterator_category iiCategory;
+    assert(typeid(std::iterator_traits<decltype(iDummy)>::iterator_category) == typeid(std::forward_iterator_tag));
 }
 
 template <typename String>
