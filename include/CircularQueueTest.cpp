@@ -19,6 +19,7 @@ static void DoPODTests()
     assert(test.empty());
     assert(test.size() == 0);
     test.push(1);
+    assert(test.begin() != test.end());
     assert(!test.empty());
     assert(test.size() == 1);
     test.push(2);

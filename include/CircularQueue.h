@@ -98,8 +98,10 @@ public:
     bool empty() const noexcept { return size() == 0; }
 
     // Returns an iterator pointing to the past-the-end element in the queue
-    iterator end() noexcept { return empty() ? begin() : iterator(this, next(tail())); }
-    const_iterator end() const noexcept { return empty() ? begin() : const_iterator(const_cast<CircularQueue*>(this), next(tail())); }
+    //iterator end() noexcept { return empty() ? begin() : iterator(this, next(tail())); }
+    //const_iterator end() const noexcept { return empty() ? begin() : const_iterator(const_cast<CircularQueue*>(this), next(tail())); }
+    iterator end() noexcept { return iterator(this, next(tail())); }
+    const_iterator end() const noexcept { return const_iterator(const_cast<CircularQueue*>(this), next(tail())); }
 
     // Returns a reference to the first element in the queue
     reference front() { return *head(); }
@@ -168,51 +170,27 @@ private:
         return true;
     }
 
-    const_pointer head() const
-    {
-        assert(m_Head < m_vContainer.size());
-        return &m_vContainer[m_Head];
-    }
+    // Returns pointer to head element
+    pointer head() { return &m_vContainer[m_Head]; }
+    const_pointer head() const { return &m_vContainer[m_Head]; }
 
-    pointer head()
-    {
-        assert(m_Head < m_vContainer.size());
-        return &m_vContainer[m_Head];
-    }
+    // Returns pointer to tail element
+    pointer tail() { return &m_vContainer[m_Tail]; }
+    const_pointer tail() const { return &m_vContainer[m_Tail]; }
 
-    const_pointer tail() const
-    {
-        assert(!empty());
-        assert(m_Tail < m_vContainer.size());
-        return &m_vContainer[m_Tail];
-    }
-
-    pointer tail()
-    {
-        assert(!empty());
-        assert(m_Tail < m_vContainer.size());
-        return &m_vContainer[m_Tail];
-    }
-
-    pointer prev(pointer p)
-    {
-        assert(!empty());
-        size_type nextIndex = decrement(p - m_vContainer.data());
-        assert(nextIndex < m_vContainer.size());
-        return &m_vContainer[nextIndex];
-    }
-
+    // Returns pointer to the next logical element
     pointer next(pointer p)
     {
-        assert(!empty());
+        //assert(!empty());
         size_type nextIndex = increment(p - m_vContainer.data());
         assert(nextIndex < m_vContainer.size());
         return &m_vContainer[nextIndex];
     }
 
+    // Returns pointer to the next logical element
     const_pointer next(const_pointer p) const
     {
-        assert(!empty());
+        //assert(!empty());
         size_type nextIndex = increment(p - m_vContainer.data());
         assert(nextIndex < m_vContainer.size());
         return &m_vContainer[nextIndex];
