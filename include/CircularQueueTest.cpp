@@ -12,6 +12,21 @@
 
 namespace CircularQueueTest {
 
+static CircularQueue<int> make_int_queue()
+{
+    CircularQueue<int> q(3);
+    q.push(1);
+    q.push(2);
+    q.push(42);
+    return q;
+}
+
+static void process_int_queue(CircularQueue<int> q)
+{
+    q.pop();
+    q.push(108);
+}
+
 static void DoPODTests()
 {
     CircularQueue<int> test(5);
@@ -31,11 +46,13 @@ static void DoPODTests()
     assert(test.full());
     assert(test.size() == 5);
     test.pop();
+    assert(test.size() == 4);
     assert(!test.full());
     assert(test.size() == 4);
     assert(test.back() == 5);
     assert(test.front() == 2);
 
+    // Copy construct
     auto testCopy(test);
     assert(testCopy == test);
     assert(test == testCopy);
@@ -44,6 +61,16 @@ static void DoPODTests()
     int theValue = 42;
     testCopy.push(theValue);
     assert(testCopy != test);
+
+    // Copy assign
+    test = testCopy;
+
+    // Move assign
+    CircularQueue<int> testMove(3);
+    testMove = std::move(test);
+
+    // Move construct
+    process_int_queue(make_int_queue());
 
     CircularQueue<int> test2(7);
     test2.push(10);
@@ -80,7 +107,6 @@ static void DoPODTests()
 
     for (auto& iByRef : test2)
     {
-        iByRef = 5;
         printf("i is %u\n", iByRef);
     }
 
@@ -104,33 +130,52 @@ static void DoPODTests()
 
     struct Dummy
     {
+        Dummy()
+            : m_c('a')
+            , m_i(0)
+        {
+        }
+        ~Dummy()
+        {
+            m_c = 0;
+            m_i = -1;
+        }
+
+        Dummy(char c, int i)
+            : m_c(c)
+            , m_i(i)
+        {
+        }
         char m_c;
         int m_i;
     };
 
-    Dummy element = { 'c', 42 };
-    std::deque<Dummy> dequeDummy;
-    dequeDummy.push_back(element);
-    auto Iter = dequeDummy.begin();
-    std::deque<Dummy>::iterator IterEnd;
-    std::vector<int>::iterator vIter;
-    eastl::vector<int>::iterator iJunk;
-    int intCopy = Iter->m_i;
+    Dummy element('c', 42);
 
-    std::iterator_traits<decltype(Iter)>::value_type ii;
+    //{
+    //    CircularQueue<Dummy> queueDummy(5);
+    //    queueDummy.push(element);
+    //    queueDummy.push(element);
+    //    auto iDummy = queueDummy.begin();
+    //    auto intCopy = iDummy->m_i;
+    //    iDummy->m_c = 'g';
+    //}
 
-    CircularQueue<Dummy> queueDummy(5);
-    queueDummy.push(element);
-    auto iDummy = queueDummy.begin();
-    intCopy = iDummy->m_i;
-    iDummy->m_c = 'g';
+    //std::iterator_traits<decltype(iDummy)>::value_type iiVT;
+    //std::iterator_traits<decltype(iDummy)>::difference_type iiDT;
+    //std::iterator_traits<decltype(iDummy)>::pointer iiPointer;
+    //std::iterator_traits<decltype(iDummy)>::reference iiReference = iiVT;
+    //std::iterator_traits<decltype(iDummy)>::iterator_category iiCategory;
+    //assert(typeid(std::iterator_traits<decltype(iDummy)>::iterator_category) == typeid(std::forward_iterator_tag));
 
-    std::iterator_traits<decltype(iDummy)>::value_type iiVT;
-    std::iterator_traits<decltype(iDummy)>::difference_type iiDT;
-    std::iterator_traits<decltype(iDummy)>::pointer iiPointer;
-    std::iterator_traits<decltype(iDummy)>::reference iiReference = iiVT;
-    std::iterator_traits<decltype(iDummy)>::iterator_category iiCategory;
-    assert(typeid(std::iterator_traits<decltype(iDummy)>::iterator_category) == typeid(std::forward_iterator_tag));
+    std::vector<std::string> sJunk;
+    sJunk.push_back("hi there this string is too long for SSO");
+
+    CircularQueue<std::string> sQueue(5);
+    sQueue.push("hello");
+    sQueue.push("there this string is too long for SSO");
+    std::string sWorld = "world";
+    sQueue.push(sWorld);
 }
 
 template <typename String>
@@ -172,8 +217,7 @@ static void MovePushAndPopStrings(CircularQueue<String>& testQueue, int num)
 
     for (int j = 0; j < num; ++j)
     {
-        String sTestString = make_string<String>("String data for queue move test");
-        testQueue.push(std::move(sTestString));
+        testQueue.push(make_string<String>("String data for queue move test"));
     }
 
     for (int j = 0; j < num; ++j)
