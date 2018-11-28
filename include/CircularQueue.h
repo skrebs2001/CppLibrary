@@ -141,7 +141,7 @@ public:
     // Returns whether the queue is at maximum capacity
     bool full() const noexcept { return size() == capacity() - 1; }
 
-    // Removes the first element, reduces queue size by one
+    // Removes the head element, reduces queue size by one
     void pop()
     {
         assert(!empty());
@@ -150,7 +150,7 @@ public:
         --m_Size;
     }
 
-    // Inserts a new element at the end of the queue
+    // Inserts a new element at the tail of the queue
     void push(const value_type& val) { add(val); }
     void push(value_type&& val) { add(std::move(val)); }
 
@@ -167,64 +167,46 @@ public:
         std::swap(m_Capacity, other.m_Capacity);
     }
 
-    friend bool operator==(const CircularQueue& lhs, const CircularQueue& rhs) { return lhs.compare(rhs); }
-    friend bool operator!=(const CircularQueue& lhs, const CircularQueue& rhs) { return !(lhs == rhs); }
-
 private:
+    template <typename Val>
+    struct IsTrivial : std::is_trivial<typename std::remove_reference<Val>::type>
+    {
+    };
+
     template <typename Val>
     void add(Val&& val)
     {
-        assert(!full());
+        if (full()) pop();
         m_Tail = increment(m_Tail);
         assert(m_Tail < capacity());
-        construct(std::forward<Val>(val));
+        construct(std::forward<Val>(val), tail());
         ++m_Size;
     }
 
-    template <typename Val>
-    typename std::enable_if<std::is_trivial<Val>::value>::type construct(Val&& val)
-    {
-        m_pData[m_Tail] = val;
-    }
-
-    template <typename Val>
-    typename std::enable_if<!std::is_trivial<Val>::value>::type construct(Val&& val)
-    {
-        ::new (tail()) value_type(std::forward<Val>(val));
-    }
-
-    pointer allocate(size_t capacity) { return static_cast<pointer>(::operator new(sizeof(value_type) * capacity)); }
-
-    bool compare(const CircularQueue& other) const
-    {
-        if (m_Size != other.m_Size)
-        {
-            return false;
-        }
-
-        // iterate over each container, compare elements
-        auto thisIndex = m_Head;
-        auto otherIndex = other.m_Head;
-
-        for (; thisIndex != m_Tail; thisIndex = increment(thisIndex), otherIndex = increment(otherIndex))
-        {
-            if (m_pData[thisIndex] != other.m_pData[otherIndex])
-            {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    // Construct elements in the range [first, last) at memory pointed to by dest
+    // Construct elements from the range [first, last) into contiguous memory range pointed to by dest
     void construct_range(const_iterator first, const_iterator last, pointer dest)
     {
         for (; first != last; ++first, ++dest)
         {
-            ::new (dest) value_type(*first);
+            construct(*first, dest);
         }
     }
+
+    // Construct a single element into memory pointed to by dest
+    template <typename Val>
+    typename std::enable_if<IsTrivial<Val>::value>::type construct(Val&& val, pointer dest)
+    {
+        *dest = val;
+    }
+
+    // Construct a single element into memory pointed to by dest
+    template <typename Val>
+    typename std::enable_if<!IsTrivial<Val>::value>::type construct(Val&& val, pointer dest)
+    {
+        ::new (dest) value_type(std::forward<Val>(val));
+    }
+
+    pointer allocate(size_t capacity) { return static_cast<pointer>(::operator new(sizeof(value_type) * capacity)); }
 
     // Destroy all elements and release buffer memory
     void deallocate()
@@ -246,7 +228,11 @@ private:
     }
 
     // Destroy the element pointed to by p
-    void destroy(pointer p) { p->~value_type(); }
+    void destroy(pointer p)
+    {
+        (void)p;
+        p->~value_type();
+    }
 
     void move_from(CircularQueue& other) noexcept
     {
@@ -273,8 +259,6 @@ private:
 
     // Returns pointer to the next logical element
     pointer next(pointer p) { return const_cast<pointer>(next(const_cast<const_pointer>(p))); }
-
-    // Returns const pointer to the next logical element
     const_pointer next(const_pointer p) const
     {
         size_type nextIndex = increment(p - m_pData);
@@ -293,6 +277,18 @@ private:
     size_type m_Size = 0;
     size_type m_Capacity = 0;
 };
+
+template <typename T>
+bool operator==(const CircularQueue<T>& lhs, const CircularQueue<T>& rhs)
+{
+    return lhs.size() == rhs.size() && std::equal(lhs.begin(), lhs.end(), rhs.begin());
+}
+
+template <typename T>
+bool operator!=(const CircularQueue<T>& lhs, const CircularQueue<T>& rhs)
+{
+    return !(lhs == rhs);
+}
 
 #else
 
