@@ -34,15 +34,37 @@ static void process_queue(CircularQueue<T> q)
 template <typename T>
 static void DoPODTests()
 {
-    std::vector<int> i1 = { 1, 2, 3 };
-    std::vector<int> i2 = { 4, 5, 6 };
-    auto i3{i1};
+    //{
+    //    std::vector<int> i1 = { 1, 2, 3 };
+    //    std::vector<int> i2 = { 4, 5, 6 };
+    //    auto i3{ i1 };
+    //}
 
-    std::vector<std::string> s1;
-    s1.push_back("hello");
-    s1.push_back("world");
-    auto s2{s1};
+    //{
+    //    eastl::vector<int> i1;
+    //    i1.push_back(1);
+    //    i1.push_back(2);
+    //    i1.push_back(3);
+    //}
 
+    //{
+    //    eastl::vector<eastl::string> s1;
+    //    eastl::string s = "hello";
+    //    s1.push_back(s);
+    //    s1.push_back("world");
+    //}
+
+    //{
+    //    std::vector<std::string> s1;
+    //    std::string s = "hello";
+    //    s1.push_back(s);
+    //    s1.push_back("world");
+    //    auto s2{ s1 };
+    //}
+
+    {
+        CircularQueue<int> test;
+    }
 
     CircularQueue<T> test(5);
     assert(test.begin() == test.end());
@@ -150,6 +172,7 @@ static void DoPODTests()
 
 struct TrivialType
 {
+    ~TrivialType() = default;
     int i;
     float f;
     char c;
@@ -267,6 +290,8 @@ static void DoNonTrivialObjectTests()
     auto testCopy(qNonTrivial);
     assert(testCopy == qNonTrivial);
     assert(qNonTrivial == testCopy);
+
+    qNonTrivial.pop();
 
     auto iDummy = qNonTrivial.begin();
     auto intCopy = iDummy->m_i;

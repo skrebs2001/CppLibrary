@@ -71,12 +71,7 @@ public:
     template <class, class, class>
     friend class CircularQueueIterator;
 
-    CircularQueue() = delete;
-    ~CircularQueue()
-    {
-        deallocate();
-        m_pData = nullptr;
-    }
+    CircularQueue() = default;
 
     // Construct a circular queue with the given element capacity
     explicit CircularQueue(size_type capacity)
@@ -100,6 +95,8 @@ public:
 
     CircularQueue& operator=(const CircularQueue& other)
     {
+        // Potential optimization is to copy the elements from other if the current memory has the capacity
+        // Would lose the strong exception guarantee since an element copy may throw, but eliminates one memory allocation and deallocation
         CircularQueue temp(other);
         swap(temp);
         return *this;
@@ -109,6 +106,12 @@ public:
     {
         // Move resources from other object into new
         move_from(other);
+    }
+
+    ~CircularQueue()
+    {
+        deallocate();
+        m_pData = nullptr;
     }
 
     CircularQueue& operator=(CircularQueue&& other) noexcept
@@ -145,7 +148,7 @@ public:
     void pop()
     {
         assert(!empty());
-        destroy(head());
+        head()->~value_type();
         m_Head = increment(m_Head);
         --m_Size;
     }
@@ -219,19 +222,19 @@ private:
     }
 
     // Destroy the buffer elements in the range [first, last)
-    void destroy_range(pointer first, pointer last)
+    template <typename Val = value_type>
+    typename std::enable_if<std::is_trivially_destructible<Val>::value>::type destroy_range(pointer, pointer)
+    {
+    }
+
+    // Destroy the buffer elements in the range [first, last)
+    template <typename Val = value_type>
+    typename std::enable_if<!std::is_trivially_destructible<Val>::value>::type destroy_range(pointer first, pointer last)
     {
         for (; first != last; first = next(first))
         {
-            destroy(first);
+            first->~value_type();
         }
-    }
-
-    // Destroy the element pointed to by p
-    void destroy(pointer p)
-    {
-        (void)p;
-        p->~value_type();
     }
 
     void move_from(CircularQueue& other) noexcept
