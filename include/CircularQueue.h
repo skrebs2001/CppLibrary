@@ -83,6 +83,46 @@ public:
     {
     }
 
+    void set_capacity(size_type new_capacity)
+    {
+        // If the new capacity is equal to the current capacity, just return
+        //
+        // Otherwise, if the new capacity is greater than the current:
+        //   allocate a new buffer at the new capacity
+        //   move the elements from the current buffer to the new buffer
+        //   deallocate the current buffer
+        //
+        // Else, the new capacity is less than the current:
+        //    elements from the head are removed until the new capacity is reached
+
+        // Degenerate case of default constructed queue
+        if (m_Capacity == 0 && new_capacity == 0)
+        {
+            return;
+        }
+
+        // Current capacity is non-zero, new capacity is 0, deallocate current buffer and reset all data members
+        if (new_capacity == 0)
+        {
+            deallocate();
+            reset();
+            return;
+        }
+
+        // New capacity is non-zero, resize the buffer if not equal
+        if (++new_capacity != m_Capacity)
+        {
+            pointer pNewData = allocate(new_capacity);
+            move_range(head(), tail(), pNewData);
+            deallocate();
+
+            m_pData = pNewData;
+            m_Head = 0;
+            m_Tail = m_Size - 1;
+            m_Capacity = new_capacity;
+        }
+    }
+
     CircularQueue(const CircularQueue& other)
         : m_pData(allocate(other.m_Capacity))
         , m_Head(0)
@@ -111,7 +151,7 @@ public:
     ~CircularQueue()
     {
         deallocate();
-        m_pData = nullptr;
+        reset();
     }
 
     CircularQueue& operator=(CircularQueue&& other) noexcept
@@ -170,9 +210,47 @@ public:
         std::swap(m_Capacity, other.m_Capacity);
     }
 
+    //bool AddTest()
+    //{
+    //    for (m_Capacity = 1; m_Capacity < 1000; ++m_Capacity)
+    //    {
+    //        for (size_t i = 0; i < m_Capacity; ++i)
+    //        {
+    //            auto i1 = addOffset(0, i);
+    //            auto i2 = addOffset2(0, i);
+
+    //            if (i1 != i2)
+    //            {
+    //                return false;
+    //            }
+    //        }
+    //    }
+
+    //    return true;
+    //}
+
+    //bool IncrementTest()
+    //{
+    //    for (m_Capacity = 1; m_Capacity < 1000; ++m_Capacity)
+    //    {
+    //        for (size_t i = 0; i < m_Capacity; ++i)
+    //        {
+    //            auto i1 = increment(i);
+    //            auto i2 = increment2(i);
+
+    //            if (i1 != i2)
+    //            {
+    //                return false;
+    //            }
+    //        }
+    //    }
+
+    //    return true;
+    //}
+
 private:
     template <typename Val>
-    struct IsTrivial : std::is_trivial<typename std::remove_reference<Val>::type>
+    struct TriviallyCopyable : std::is_trivially_copyable<typename std::remove_reference<Val>::type>
     {
     };
 
@@ -197,28 +275,16 @@ private:
 
     // Construct a single element into memory pointed to by dest
     template <typename Val>
-    typename std::enable_if<IsTrivial<Val>::value>::type construct(Val&& val, pointer dest)
+    typename std::enable_if<TriviallyCopyable<Val>::value>::type construct(Val&& val, pointer dest)
     {
         *dest = val;
     }
 
     // Construct a single element into memory pointed to by dest
     template <typename Val>
-    typename std::enable_if<!IsTrivial<Val>::value>::type construct(Val&& val, pointer dest)
+    typename std::enable_if<!TriviallyCopyable<Val>::value>::type construct(Val&& val, pointer dest)
     {
         ::new (dest) value_type(std::forward<Val>(val));
-    }
-
-    pointer allocate(size_t capacity) { return static_cast<pointer>(::operator new(sizeof(value_type) * capacity)); }
-
-    // Destroy all elements and release buffer memory
-    void deallocate()
-    {
-        if (m_pData)
-        {
-            destroy_range(head(), next(tail()));
-            ::operator delete(m_pData);
-        }
     }
 
     // Destroy the buffer elements in the range [first, last)
@@ -237,6 +303,17 @@ private:
         }
     }
 
+    // Move elements from the closed range [first, last] to the range pointed to by dest
+    void move_range(pointer first, pointer last, pointer dest)
+    {
+        dest += size() - 1;
+        for (; first != last; last = prev(last))
+        {
+            *dest = std::move(*last);
+        }
+        *dest = std::move(*last);
+    }
+
     void move_from(CircularQueue& other) noexcept
     {
         m_pData = other.m_pData;
@@ -244,12 +321,32 @@ private:
         m_Tail = other.m_Tail;
         m_Size = other.m_Size;
         m_Capacity = other.m_Capacity;
+        reset(other);
+    }
 
-        other.m_pData = nullptr;
-        other.m_Head = 0;
-        other.m_Tail = 0;
-        other.m_Size = 0;
-        other.m_Capacity = 0;
+    // Reset the queue to the default state
+    void reset(CircularQueue& q) noexcept
+    {
+        q.m_pData = nullptr;
+        q.m_Head = 0;
+        q.m_Tail = 0;
+        q.m_Size = 0;
+        q.m_Capacity = 0;
+    }
+
+    void reset() noexcept { reset(*this); }
+
+    // Allocate buffer for n elements
+    pointer allocate(size_t n) { return static_cast<pointer>(::operator new(sizeof(value_type) * n)); }
+
+    // Destroy all elements and release buffer memory
+    void deallocate()
+    {
+        if (m_pData)
+        {
+            destroy_range(head(), next(tail()));
+            ::operator delete(m_pData);
+        }
     }
 
     // Returns pointer to head element
@@ -264,13 +361,39 @@ private:
     pointer next(pointer p) { return const_cast<pointer>(next(const_cast<const_pointer>(p))); }
     const_pointer next(const_pointer p) const
     {
-        size_type nextIndex = increment(p - m_pData);
-        assert(nextIndex < capacity());
-        return &m_pData[nextIndex];
+        size_type index = increment(p - m_pData);
+        assert(index < capacity());
+        return &m_pData[index];
+    }
+
+    // Returns pointer to the previous logical element
+    pointer prev(pointer p) { return const_cast<pointer>(prev(const_cast<const_pointer>(p))); }
+    const_pointer prev(const_pointer p) const
+    {
+        size_type index = decrement(p - m_pData);
+        assert(index < capacity());
+        return &m_pData[index];
     }
 
     // Increment the given index, wrapping around the container size
     size_type increment(size_type index) const noexcept { return (index == capacity() - 1) ? 0 : index + 1; }
+
+    size_type increment2(size_type index) const noexcept { return (index + 1) % capacity(); }
+
+    size_type addOffset(size_type index, size_type n) const
+    {
+        size_type result = index;
+        while (n-- > 0)
+        {
+            result = increment(result);
+        }
+        return result;
+    }
+
+    size_type addOffset2(size_type index, size_type n) const { return (index + n) % capacity(); }
+
+    // Decrement the given index, wrapping around the container size
+    size_type decrement(size_type index) const noexcept { return (index == 0) ? capacity() - 1 : index - 1; }
 
     size_type capacity() const noexcept { return m_Capacity; }
 

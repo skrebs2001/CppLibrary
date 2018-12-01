@@ -63,7 +63,7 @@ static void DoPODTests()
     //}
 
     {
-        CircularQueue<int> test;
+        CircularQueue<T> test;
     }
 
     CircularQueue<T> test(5);
@@ -168,14 +168,18 @@ static void DoPODTests()
     {
         std::cout << "i is " << i << "\n";
     }
+
+    {
+        CircularQueue<CircularQueue<T> > nestedQ(3);       
+    }
 }
 
 struct TrivialType
 {
-    ~TrivialType() = default;
-    int i;
-    float f;
-    char c;
+    TrivialType() {}
+    int i = 0;
+    float f = 0.0f;
+    char c = 'a';
 };
 
 bool operator==(const TrivialType& lhs, const TrivialType& rhs)
@@ -183,7 +187,10 @@ bool operator==(const TrivialType& lhs, const TrivialType& rhs)
     return lhs.i == rhs.i && lhs.f == rhs.f && lhs.c == rhs.c;
 }
 
-bool operator!=(const TrivialType& lhs, const TrivialType& rhs) { return !(lhs == rhs); }
+bool operator!=(const TrivialType& lhs, const TrivialType& rhs)
+{
+    return !(lhs == rhs);
+}
 
 struct DerivedTrivialType : TrivialType
 {
@@ -273,7 +280,10 @@ bool operator==(const NonTrivialType& lhs, const NonTrivialType& rhs)
     return lhs.m_c == rhs.m_c && lhs.m_i == rhs.m_i;
 }
 
-bool operator!=(const NonTrivialType& lhs, const NonTrivialType& rhs) { return !(lhs == rhs); }
+bool operator!=(const NonTrivialType& lhs, const NonTrivialType& rhs)
+{
+    return !(lhs == rhs);
+}
 
 static void DoNonTrivialObjectTests()
 {
