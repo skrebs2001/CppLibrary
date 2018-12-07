@@ -1,4 +1,5 @@
 #pragma once
+#include <type_traits>
 #include <vector>
 #include <deque>
 #include <list>
@@ -66,3 +67,17 @@ struct make_void
 
 template <typename... Ts>
 using void_t = typename make_void<Ts...>::type;
+
+template<typename T, typename = void>
+struct is_equality_comparable : std::false_type
+{ };
+
+template<typename T>
+struct is_equality_comparable<T,
+    typename std::enable_if<
+    true,
+    decltype(std::declval<T&>() == std::declval<T&>(), (void)0)
+    >::type
+> : std::true_type
+{
+};
