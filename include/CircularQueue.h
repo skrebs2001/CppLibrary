@@ -220,11 +220,7 @@ public:
         // New capacity is non-zero, resize the buffer if not equal
         if (++new_capacity != m_Capacity)
         {
-            pointer pNewData = allocate(new_capacity);
-            if (!empty())
-            {
-                construct_range(begin(), end(), pNewData);
-            }
+            pointer pNewData = reallocate(new_capacity);
             deallocate();
 
             m_pData = pNewData;
@@ -358,6 +354,17 @@ private:
 
     void reset() noexcept { reset(*this); }
 
+    // Allocate new buffer for n elements, copy current elements
+    pointer reallocate(size_t n)
+    {
+        pointer p = allocate(n);
+        if (!empty())
+        {
+            construct_range(begin(), end(), p);
+        }
+        return p;
+    }
+
     // Allocate buffer for n elements
     pointer allocate(size_t n) { return static_cast<pointer>(::operator new(sizeof(value_type) * n)); }
 
@@ -383,6 +390,7 @@ private:
     pointer next(pointer p) { return const_cast<pointer>(next(const_cast<const_pointer>(p))); }
     const_pointer next(const_pointer p) const
     {
+        if (!p) return nullptr;
         size_type index = increment(p - m_pData);
         assert(index < capacity());
         return &m_pData[index];

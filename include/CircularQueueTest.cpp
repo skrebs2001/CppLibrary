@@ -32,30 +32,30 @@ static void process_queue(CircularQueue<T> q)
     q.push(108);
 }
 
-static void myStringTest(std::list<std::string>::const_iterator i)
-{
-    
-}
+//static void myStringTest(std::list<std::string>::const_iterator i)
+//{
+//    
+//}
 
 template <typename T>
 static void DoPODTests()
 {
-    {
-        std::list<std::string> i1;
-        assert(i1.max_size() > 0);
-        i1.push_back("tiny");
-        i1.push_back("This string is too long for the small size optimization");
-        i1.push_back("Another string that is too big for the local buffer");
+    //{
+    //    std::list<std::string> i1;
+    //    assert(i1.max_size() > 0);
+    //    i1.push_back("tiny");
+    //    i1.push_back("This string is too long for the small size optimization");
+    //    i1.push_back("Another string that is too big for the local buffer");
 
-        auto lcopy(i1);
-        myStringTest(i1.begin());
+    //    auto lcopy(i1);
+    //    myStringTest(i1.begin());
 
-        std::vector<int> i2;
-        i2.push_back(1);
-        i2.push_back(2);
-        i2.push_back(3);
-        auto icopy(i2);
-    }
+    //    std::vector<int> i2;
+    //    i2.push_back(1);
+    //    i2.push_back(2);
+    //    i2.push_back(3);
+    //    auto icopy(i2);
+    //}
 
     CircularQueue<T> test(5);
     assert(test.max_size() > 0);
@@ -442,6 +442,7 @@ static void DoResizeTests()
     {
         CircularQueue<T> test;
         assert(test.empty());
+        assert(test.begin() == test.end());
     }
 
     // construct queue with no capacity, resize to 0 capacity, destroy
