@@ -4,17 +4,20 @@
 #include <type_traits>
 #include <vector>
 
-template <typename Queue, typename Pointer, typename Reference>
+template <typename T>
+class CircularQueue;
+
+template <typename T, typename Pointer, typename Reference>
 class CircularQueueIterator
 {
 public:
-    using iterator_category = std::forward_iterator_tag;
-    using value_type = typename Queue::value_type;
-    using difference_type = typename Queue::difference_type;
+    using iterator_category = std::bidirectional_iterator_tag;
+    using value_type = T;
+    using difference_type = typename CircularQueue<value_type>::difference_type;
     using pointer = Pointer;
     using reference = Reference;
 
-    explicit CircularQueueIterator(Queue* pCircularQueue, pointer pElement)
+    explicit CircularQueueIterator(CircularQueue<value_type>* pCircularQueue, pointer pElement)
         : m_pCircularQueue(pCircularQueue)
         , m_pElement(pElement)
     {
@@ -40,16 +43,28 @@ public:
         return temp;
     }
 
+    // Pre-decrement operator
+    CircularQueueIterator& operator--()
+    {
+        m_pElement = m_pCircularQueue->prev(m_pElement);
+        return *this;
+    }
+
+    // Post-decrement operator
+    CircularQueueIterator operator--(int)
+    {
+        CircularQueueIterator temp(*this);
+        --(*this);
+        return temp;
+    }
+
     reference operator*() const { return *m_pElement; }
-
     pointer operator->() const { return m_pElement; }
-
     friend bool operator==(const CircularQueueIterator& lhs, const CircularQueueIterator& rhs) { return lhs.m_pElement == rhs.m_pElement; }
-
     friend bool operator!=(const CircularQueueIterator& lhs, const CircularQueueIterator& rhs) { return !(lhs == rhs); }
 
 private:
-    Queue* m_pCircularQueue = nullptr;
+    CircularQueue<value_type>* m_pCircularQueue = nullptr;
     pointer m_pElement = nullptr;
 };
 
@@ -66,8 +81,8 @@ public:
     using const_reference = const value_type&;
     using pointer = value_type*;
     using const_pointer = const value_type*;
-    using iterator = CircularQueueIterator<CircularQueue<value_type>, pointer, reference>;
-    using const_iterator = CircularQueueIterator<CircularQueue<value_type>, const_pointer, const_reference>;
+    using iterator = CircularQueueIterator<value_type, pointer, reference>;
+    using const_iterator = CircularQueueIterator<value_type, const_pointer, const_reference>;
     template <class, class, class>
     friend class CircularQueueIterator;
 
@@ -83,54 +98,16 @@ public:
     {
     }
 
-    void set_capacity(size_type new_capacity)
-    {
-        // If the new capacity is equal to the current capacity, just return
-        //
-        // Otherwise, if the new capacity is greater than the current:
-        //   allocate a new buffer at the new capacity
-        //   move the elements from the current buffer to the new buffer
-        //   deallocate the current buffer
-        //
-        // Else, the new capacity is less than the current:
-        //    elements from the head are removed until the new capacity is reached
-
-        // Degenerate case of default constructed queue
-        if (m_Capacity == 0 && new_capacity == 0)
-        {
-            return;
-        }
-
-        // Current capacity is non-zero, new capacity is 0, deallocate current buffer and reset all data members
-        if (new_capacity == 0)
-        {
-            deallocate();
-            reset();
-            return;
-        }
-
-        // New capacity is non-zero, resize the buffer if not equal
-        if (++new_capacity != m_Capacity)
-        {
-            pointer pNewData = allocate(new_capacity);
-            move_range(head(), tail(), pNewData);
-            deallocate();
-
-            m_pData = pNewData;
-            m_Head = 0;
-            m_Tail = m_Size - 1;
-            m_Capacity = new_capacity;
-        }
-    }
-
     CircularQueue(const CircularQueue& other)
-        : m_pData(allocate(other.m_Capacity))
-        , m_Head(0)
-        , m_Tail(other.m_Size - 1)
-        , m_Size(other.m_Size)
-        , m_Capacity(other.m_Capacity)
     {
-        construct_range(other.begin(), other.end(), m_pData);
+        pointer pNewData = allocate(other.capacity());
+        construct_range(other.begin(), other.end(), pNewData);
+
+        m_pData = pNewData;
+        m_Head = 0;
+        m_Tail = other.empty() ? other.capacity() - 1 : other.size() - 1;
+        m_Size = other.size();
+        m_Capacity = other.capacity();
     }
 
     CircularQueue& operator=(const CircularQueue& other)
@@ -169,6 +146,7 @@ public:
     // Returns an iterator pointing to the first element in the queue
     iterator begin() noexcept { return iterator(this, head()); }
     const_iterator begin() const noexcept { return const_iterator(const_cast<CircularQueue*>(this), head()); }
+    const_iterator cbegin() const noexcept { return const_cast<const CircularQueue&>(*this).begin(); }
 
     // Returns whether the queue is empty
     bool empty() const noexcept { return size() == 0; }
@@ -176,6 +154,7 @@ public:
     // Returns an iterator pointing to the past-the-end element in the queue
     iterator end() noexcept { return iterator(this, next(tail())); }
     const_iterator end() const noexcept { return const_iterator(const_cast<CircularQueue*>(this), next(tail())); }
+    const_iterator cend() const noexcept { return const_cast<const CircularQueue&>(*this).end(); }
 
     // Returns a reference to the first element in the queue
     reference front() { return *head(); }
@@ -183,6 +162,8 @@ public:
 
     // Returns whether the queue is at maximum capacity
     bool full() const noexcept { return size() == capacity() - 1; }
+
+    size_type max_size() const noexcept { return static_cast<size_type>(0xffffffff) / sizeof(value_type); }
 
     // Removes the head element, reduces queue size by one
     void pop()
@@ -208,6 +189,49 @@ public:
         std::swap(m_Tail, other.m_Tail);
         std::swap(m_Size, other.m_Size);
         std::swap(m_Capacity, other.m_Capacity);
+    }
+
+    void set_capacity(size_type new_capacity)
+    {
+        // If the new capacity is equal to the current capacity, just return
+        //
+        // Otherwise, if the new capacity is greater than the current:
+        //   allocate a new buffer at the new capacity
+        //   move the elements from the current buffer to the new buffer
+        //   deallocate the current buffer
+        //
+        // Else, the new capacity is less than the current:
+        //    elements from the head are removed until the new capacity is reached
+
+        // Degenerate case of default constructed queue
+        if (m_Capacity == 0 && new_capacity == 0)
+        {
+            return;
+        }
+
+        // Current capacity is non-zero, new capacity is 0, deallocate current buffer and reset all data members
+        if (new_capacity == 0)
+        {
+            deallocate();
+            reset();
+            return;
+        }
+
+        // New capacity is non-zero, resize the buffer if not equal
+        if (++new_capacity != m_Capacity)
+        {
+            pointer pNewData = allocate(new_capacity);
+            if (!empty())
+            {
+                construct_range(begin(), end(), pNewData);
+            }
+            deallocate();
+
+            m_pData = pNewData;
+            m_Head = 0;
+            m_Tail = empty() ? new_capacity - 1 : size() - 1;
+            m_Capacity = new_capacity;
+        }
     }
 
     //bool AddTest()
@@ -273,6 +297,15 @@ private:
         }
     }
 
+    // Construct elements from the range [first, last) into contiguous memory range pointed to by dest
+    void construct_range(iterator first, iterator last, pointer dest)
+    {
+        for (; first != last; ++first, ++dest)
+        {
+            construct(*first, dest);
+        }
+    }
+
     // Construct a single element into memory pointed to by dest
     template <typename Val>
     typename std::enable_if<TriviallyCopyable<Val>::value>::type construct(Val&& val, pointer dest)
@@ -301,17 +334,6 @@ private:
         {
             first->~value_type();
         }
-    }
-
-    // Move elements from the closed range [first, last] to the range pointed to by dest
-    void move_range(pointer first, pointer last, pointer dest)
-    {
-        dest += size() - 1;
-        for (; first != last; last = prev(last))
-        {
-            *dest = std::move(*last);
-        }
-        *dest = std::move(*last);
     }
 
     void move_from(CircularQueue& other) noexcept
@@ -414,6 +436,12 @@ template <typename T>
 bool operator!=(const CircularQueue<T>& lhs, const CircularQueue<T>& rhs)
 {
     return !(lhs == rhs);
+}
+
+template <typename T>
+void swap(CircularQueue<T>& a, CircularQueue<T>& b) noexcept
+{
+    a.swap(b);
 }
 
 #else

@@ -11,6 +11,7 @@
 #include <string>
 #include "CircularQueue.h"
 #include "eastl/string.h"
+#include <list>
 
 namespace CircularQueueTest {
 
@@ -31,42 +32,33 @@ static void process_queue(CircularQueue<T> q)
     q.push(108);
 }
 
+static void myStringTest(std::list<std::string>::const_iterator i)
+{
+    
+}
+
 template <typename T>
 static void DoPODTests()
 {
-    //{
-    //    std::vector<int> i1 = { 1, 2, 3 };
-    //    std::vector<int> i2 = { 4, 5, 6 };
-    //    auto i3{ i1 };
-    //}
-
-    //{
-    //    eastl::vector<int> i1;
-    //    i1.push_back(1);
-    //    i1.push_back(2);
-    //    i1.push_back(3);
-    //}
-
-    //{
-    //    eastl::vector<eastl::string> s1;
-    //    eastl::string s = "hello";
-    //    s1.push_back(s);
-    //    s1.push_back("world");
-    //}
-
-    //{
-    //    std::vector<std::string> s1;
-    //    std::string s = "hello";
-    //    s1.push_back(s);
-    //    s1.push_back("world");
-    //    auto s2{ s1 };
-    //}
-
     {
-        CircularQueue<T> test;
+        std::list<std::string> i1;
+        assert(i1.max_size() > 0);
+        i1.push_back("tiny");
+        i1.push_back("This string is too long for the small size optimization");
+        i1.push_back("Another string that is too big for the local buffer");
+
+        auto lcopy(i1);
+        myStringTest(i1.begin());
+
+        std::vector<int> i2;
+        i2.push_back(1);
+        i2.push_back(2);
+        i2.push_back(3);
+        auto icopy(i2);
     }
 
     CircularQueue<T> test(5);
+    assert(test.max_size() > 0);
     assert(test.begin() == test.end());
     assert(test.empty());
     assert(test.size() == 0);
@@ -125,9 +117,27 @@ static void DoPODTests()
     test2.push(60);
     test2.push(70);
 
+    // Iterator decrement tests
+    {
+        auto i = test2.end();
+        --i; assert(*i == 70);
+        i--; assert(*i == 60);
+        --i; assert(*i == 50);
+        i--; assert(*i == 40);
+        --i; assert(*i == 30);
+        i--; assert(*i-- == 20);
+        assert(*i == 10);
+        assert(i == test2.begin());
+    }
+
     const CircularQueue<T>& constRef = test2;
     assert(constRef.back() == 70);
     assert(constRef.front() == 10);
+
+    assert(test2.cbegin() != test2.cend());
+    assert(constRef.cbegin() != constRef.cend());
+    assert(test2.cbegin() == constRef.cbegin());
+    assert(test2.cend() == constRef.cend());
 
     for (auto i : constRef)
     {
@@ -169,8 +179,21 @@ static void DoPODTests()
         std::cout << "i is " << i << "\n";
     }
 
+    // copy construct from empty queue
     {
-        CircularQueue<CircularQueue<T> > nestedQ(3);       
+        CircularQueue<T> qSource(5);
+        assert(qSource.empty());
+        auto qCopy(qSource);
+        assert(qCopy.empty());
+        assert(qSource == qCopy);
+    }
+
+    // copy assign from empty queue
+    {
+        CircularQueue<T> qSource(5);
+        CircularQueue<T> qCopy;
+        qCopy = qSource;
+        assert(qSource == qCopy);
     }
 }
 
@@ -317,7 +340,7 @@ static void DoIteratorTraitsTests()
     std::iterator_traits<decltype(iQ)>::pointer iiPointer;
     std::iterator_traits<decltype(iQ)>::reference iiReference = iiVT;
     std::iterator_traits<decltype(iQ)>::iterator_category iiCategory;
-    assert(typeid(std::iterator_traits<decltype(iQ)>::iterator_category) == typeid(std::forward_iterator_tag));
+    assert(typeid(std::iterator_traits<decltype(iQ)>::iterator_category) == typeid(std::bidirectional_iterator_tag));
 }
 
 static void DoAlgorithmTests()
@@ -412,6 +435,94 @@ static void DoStringTests()
     }
 }
 
+template <typename T>
+static void DoResizeTests()
+{
+    // construct and destroy queue with no capacity
+    {
+        CircularQueue<T> test;
+        assert(test.empty());
+    }
+
+    // construct queue with no capacity, resize to 0 capacity, destroy
+    {
+        CircularQueue<T> test;
+        test.set_capacity(0);
+    }
+
+    // construct queue with no capacity, resize, destroy
+    {
+        CircularQueue<T> test;
+        test.set_capacity(5);
+    }
+
+    // construct queue with non-zero capacity, resize to same capacity, destroy
+    {
+        CircularQueue<T> test(10);
+        test.set_capacity(10);
+    }
+
+    // construct queue with non-zero capacity, increase capacity, destroy
+    {
+        CircularQueue<T> test(5);
+        test.set_capacity(10);
+    }
+
+    {
+        CircularQueue<std::string> test(5);
+        test.push("hello");
+        test.push("there");
+        test.push("world");
+        test.set_capacity(10);
+    }
+
+    // construct queue with non-zero capacity, decrease capacity, destroy
+    {
+        CircularQueue<T> test(10);
+        test.set_capacity(5);
+    }
+
+    // construct queue with non-zero capacity, add elements, increase capacity, destroy
+    {
+        CircularQueue<T> test(5);
+        test.push(10);
+        test.push(20);
+        test.push(30);
+        test.set_capacity(10);
+    }
+
+    {
+        CircularQueue<CircularQueue<T> > nestedQ(5);
+        CircularQueue<T> innerQ(3);
+
+        nestedQ.push(innerQ);
+    }
+}
+
+static void DoSwapTests()
+{
+    CircularQueue<std::string> q1(5);
+    q1.push("One");
+    q1.push("Two");
+    q1.push("Three");
+    q1.push("Four");
+    q1.push("Five");
+    auto q1Copy(q1);
+    assert(q1 == q1Copy);
+
+    CircularQueue<std::string> q2(7);
+    q2.push("A");
+    q2.push("B");
+    q2.push("C");
+    auto q2Copy(q2);
+    assert(q2 == q2Copy);
+
+    assert(q1 != q2);
+    swap(q1, q2);
+    assert(q1 == q2Copy);
+    assert(q2 == q1Copy);
+}
+
 void RunCircularQueueTest()
 {
     DoPODTests<int8_t>();
@@ -436,6 +547,9 @@ void RunCircularQueueTest()
     DoStringTests<eastl::string>();
     DoStringTests<std::wstring>();
     DoStringTests<eastl::wstring>();
+
+    DoSwapTests();
+    DoResizeTests<int>();
 }
 
 }  // namespace CircularQueueTest
