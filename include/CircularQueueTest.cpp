@@ -15,18 +15,28 @@
 
 namespace CircularQueueTest {
 
-template <typename T, typename = typename std::enable_if<std::is_arithmetic<T>::value>::type>
+template <typename T>
+struct is_numeric : std::integral_constant<bool, std::is_arithmetic<T>::value && !std::is_same<T, bool>::value>
+{
+};
+
+template <typename T, typename = typename std::enable_if<is_numeric<T>::value>::type>
+static void mutate(T& t)
+{
+    ++t;
+}
+
+template <typename T>
 static CircularQueue<T> make_queue(size_t n = 3)
 {
     CircularQueue<T> q(n);
-    q.push(1);
-    q.push(2);
-    q.push(42);
+    T element = T{};
 
     // continue to fill while there is space
-    for (T element = 0; !q.full(); ++element)
+    while (!q.full())
     {
         q.push(element);
+        mutate(element);
     }
 
     return q;
@@ -44,8 +54,8 @@ static void process_queue(CircularQueue<T> q)
 //    
 //}
 
-template <typename T>
-static void DoPODTests()
+template <typename T, typename = typename std::enable_if<is_numeric<T>::value>::type>
+static void DoArithmeticTests()
 {
     //{
     //    std::list<std::string> i1;
@@ -210,8 +220,6 @@ struct TrivialType
     int i = 0;
     float f = 0.0f;
     char c = 'a';
-
-    void mutate() { i += 10; }
 };
 
 bool operator==(const TrivialType& lhs, const TrivialType& rhs)
@@ -224,14 +232,16 @@ bool operator!=(const TrivialType& lhs, const TrivialType& rhs)
     return !(lhs == rhs);
 }
 
+static void mutate(TrivialType& t) { t.i += 10; }
+
 struct DerivedTrivialType : TrivialType
 {
     double d = 3.14;
     char ch = 'f';
     long long ll = 12345678900;
-
-    void mutate() { d += 10.0; }
 };
+
+static void mutate(DerivedTrivialType& t) { t.d += 10.0; }
 
 static void DoTrivialObjectTests()
 {
@@ -306,8 +316,6 @@ struct NonTrivialType
     {
     }
 
-    void mutate() { ++m_c; m_i += 10; }
-
     char m_c;
     int m_i;
 };
@@ -321,6 +329,8 @@ bool operator!=(const NonTrivialType& lhs, const NonTrivialType& rhs)
 {
     return !(lhs == rhs);
 }
+
+static void mutate(NonTrivialType& t) { ++t.m_c; t.m_i += 10; }
 
 static void DoNonTrivialObjectTests()
 {
@@ -343,6 +353,20 @@ static void DoNonTrivialObjectTests()
     auto iDummy = qNonTrivial.begin();
     auto intCopy = iDummy->m_i;
     iDummy->m_c = 'g';
+}
+
+static void DoIteratorTests()
+{
+    CircularQueue<int> q(5);
+    assert(q.begin() == q.end());
+    //assert(q.begin() == q.cend());
+    //assert(q.cbegin() == q.end());
+    assert(q.cbegin() == q.cend());
+    q.push(1);
+    assert(q.begin() != q.end());
+    //assert(q.begin() != q.cend());
+    //assert(q.cbegin() != q.end());
+    assert(q.cbegin() != q.cend());
 }
 
 static void DoIteratorTraitsTests()
@@ -466,24 +490,32 @@ static void DoResizeTests()
     {
         CircularQueue<T> test;
         test.set_capacity(0);
+        assert(test.empty());
+        assert(test.begin() == test.end());
     }
 
     // construct queue with no capacity, resize, destroy
     {
         CircularQueue<T> test;
         test.set_capacity(5);
+        assert(test.empty());
+        assert(test.begin() == test.end());
     }
 
     // construct queue with non-zero capacity, resize to same capacity, destroy
     {
         CircularQueue<T> test(10);
         test.set_capacity(10);
+        assert(test.empty());
+        assert(test.begin() == test.end());
     }
 
     // construct queue with non-zero capacity, increase capacity, destroy
     {
         CircularQueue<T> test(5);
         test.set_capacity(10);
+        assert(test.empty());
+        assert(test.begin() == test.end());
     }
 
     {
@@ -541,29 +573,6 @@ static void DoSwapTests()
     assert(q2 == q1Copy);
 }
 
-template <typename T>
-struct IsTestType : std::integral_constant<bool, std::is_same<T, TrivialType>::value || 
-                                                 std::is_same<T, DerivedTrivialType>::value ||
-                                                 std::is_same<T, NonTrivialType>::value>
-{
-};
-
-template <typename T>
-static typename std::enable_if<IsTestType<T>::value, CircularQueue<T> >::type make_queue(size_t n = 3)
-{
-    CircularQueue<T> q(n);
-    T element;
-
-    // continue to fill while there is space
-    while (!q.full())
-    {
-        element.mutate();
-        q.push(element);
-    }
-
-    return q;
-}
-
 template <typename Val, template <typename T, typename Alloc = std::allocator<T> > typename Container>
 static void DoSequenceContainerTest()
 {
@@ -586,22 +595,23 @@ static void DoSequenceContainerTests()
 
 void RunCircularQueueTest()
 {
-    DoPODTests<int8_t>();
-    DoPODTests<uint8_t>();
-    DoPODTests<int16_t>();
-    DoPODTests<uint16_t>();
-    DoPODTests<int32_t>();
-    DoPODTests<uint32_t>();
-    DoPODTests<int64_t>();
-    DoPODTests<uint64_t>();
-    DoPODTests<float>();
-    DoPODTests<double>();
-    DoPODTests<long double>();
+    DoArithmeticTests<int8_t>();
+    DoArithmeticTests<uint8_t>();
+    DoArithmeticTests<int16_t>();
+    DoArithmeticTests<uint16_t>();
+    DoArithmeticTests<int32_t>();
+    DoArithmeticTests<uint32_t>();
+    DoArithmeticTests<int64_t>();
+    DoArithmeticTests<uint64_t>();
+    DoArithmeticTests<float>();
+    DoArithmeticTests<double>();
+    DoArithmeticTests<long double>();
 
     DoTrivialObjectTests();
     DoNonTrivialObjectTests();
 
     DoAlgorithmTests();
+    DoIteratorTests();
     DoIteratorTraitsTests();
 
     DoStringTests<std::string>();
