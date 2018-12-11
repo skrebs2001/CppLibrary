@@ -449,6 +449,30 @@ void swap(CircularQueue<T>& a, CircularQueue<T>& b) noexcept
     a.swap(b);
 }
 
+template <typename T>
+auto begin(CircularQueue<T>& c) -> decltype(c.begin())
+{
+    return c.begin();
+}
+
+template <typename T>
+auto begin(const CircularQueue<T>& c) -> decltype(c.begin())
+{
+    return c.begin();
+}
+
+template <typename T>
+auto end(CircularQueue<T>& c) -> decltype(c.end())
+{
+    return c.end();
+}
+
+template <typename T>
+auto end(const CircularQueue<T>& c) -> decltype(c.end())
+{
+    return c.end();
+}
+
 // clang-format off
 namespace CircularQueueTest
 {

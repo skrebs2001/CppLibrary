@@ -32,7 +32,6 @@ static CircularQueue<T> make_queue(size_t n = 3)
     CircularQueue<T> q(n);
     T element = T{};
 
-    // continue to fill while there is space
     while (!q.full())
     {
         q.push(element);
@@ -155,6 +154,11 @@ static void DoArithmeticTests()
     assert(constRef.cbegin() != constRef.cend());
     assert(test2.cbegin() == constRef.cbegin());
     assert(test2.cend() == constRef.cend());
+
+    assert(test2.begin() == begin(test2));
+    assert(constRef.begin() == begin(constRef));
+    assert(test2.end() == end(test2));
+    assert(constRef.end() == end(constRef));
 
     for (auto i : constRef)
     {
