@@ -1,6 +1,7 @@
 #if defined(_WIN32)
 #pragma warning(disable : 4189)  // local variable is initialized but not referenced
 #pragma warning(disable : 4101)  // unreferenced local variable
+#pragma warning(disable : 4100)  // unreferenced formal parameter
 #pragma warning(disable : 4244)  // conversion possible loss of data
 #endif
 
@@ -376,13 +377,27 @@ static void DoIteratorTests()
 static void DoIteratorTraitsTests()
 {
     CircularQueue<int> q(5);
-    auto iQ = q.begin();
-    std::iterator_traits<decltype(iQ)>::value_type iiVT;
-    std::iterator_traits<decltype(iQ)>::difference_type iiDT;
-    std::iterator_traits<decltype(iQ)>::pointer iiPointer;
-    std::iterator_traits<decltype(iQ)>::reference iiReference = iiVT;
-    std::iterator_traits<decltype(iQ)>::iterator_category iiCategory;
-    assert(typeid(std::iterator_traits<decltype(iQ)>::iterator_category) == typeid(std::bidirectional_iterator_tag));
+
+    {
+        auto iQ = q.begin();
+        std::iterator_traits<decltype(iQ)>::value_type iiVT;
+        std::iterator_traits<decltype(iQ)>::difference_type iiDT;
+        std::iterator_traits<decltype(iQ)>::pointer iiPointer;
+        std::iterator_traits<decltype(iQ)>::reference iiReference = iiVT;
+        std::iterator_traits<decltype(iQ)>::iterator_category iiCategory;
+        assert(typeid(std::iterator_traits<decltype(iQ)>::iterator_category) == typeid(std::bidirectional_iterator_tag));
+    }
+
+    {
+        const auto& refQ = q;
+        auto iQ = refQ.begin();
+        std::iterator_traits<decltype(iQ)>::value_type iiVT;
+        std::iterator_traits<decltype(iQ)>::difference_type iiDT;
+        std::iterator_traits<decltype(iQ)>::pointer iiPointer;
+        std::iterator_traits<decltype(iQ)>::reference iiReference = iiVT;
+        std::iterator_traits<decltype(iQ)>::iterator_category iiCategory;
+        assert(typeid(std::iterator_traits<decltype(iQ)>::iterator_category) == typeid(std::bidirectional_iterator_tag));
+    }
 }
 
 static void DoAlgorithmTests()
