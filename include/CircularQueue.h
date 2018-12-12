@@ -16,6 +16,13 @@ public:
     using difference_type = typename CircularQueue<value_type>::difference_type;
     using pointer = Pointer;
     using reference = Reference;
+    using iterator = CircularQueueIterator<T, T*, T&>;
+
+    CircularQueueIterator(const iterator& x)
+        : m_pCircularQueue(x.m_pCircularQueue)
+        , m_pElement(x.m_pElement)
+    {
+    }
 
     explicit CircularQueueIterator(CircularQueue<value_type>* pCircularQueue, pointer pElement)
         : m_pCircularQueue(pCircularQueue)
@@ -24,7 +31,6 @@ public:
     }
 
     CircularQueueIterator() = default;
-    CircularQueueIterator(const CircularQueueIterator&) = default;
     CircularQueueIterator& operator=(const CircularQueueIterator&) = default;
     ~CircularQueueIterator() = default;
 
@@ -60,13 +66,22 @@ public:
 
     reference operator*() const { return *m_pElement; }
     pointer operator->() const { return m_pElement; }
-    friend bool operator==(const CircularQueueIterator& lhs, const CircularQueueIterator& rhs) { return lhs.m_pElement == rhs.m_pElement; }
-    friend bool operator!=(const CircularQueueIterator& lhs, const CircularQueueIterator& rhs) { return !(lhs == rhs); }
 
-private:
     CircularQueue<value_type>* m_pCircularQueue = nullptr;
     pointer m_pElement = nullptr;
 };
+
+template <typename T, typename PointerA, typename RefA, typename PointerB, typename RefB>
+bool operator==(const CircularQueueIterator<T, PointerA, RefA>& lhs, const CircularQueueIterator<T, PointerB, RefB>& rhs)
+{
+    return lhs.m_pElement == rhs.m_pElement;
+}
+
+template <typename T, typename PointerA, typename RefA, typename PointerB, typename RefB>
+bool operator!=(const CircularQueueIterator<T, PointerA, RefA>& lhs, const CircularQueueIterator<T, PointerB, RefB>& rhs)
+{
+    return !(lhs == rhs);
+}
 
 // Fixed size circular queue
 template <typename T>
@@ -283,15 +298,6 @@ private:
 
     // Construct elements from the range [first, last) into contiguous memory range pointed to by dest
     void construct_range(const_iterator first, const_iterator last, pointer dest)
-    {
-        for (; first != last; ++first, ++dest)
-        {
-            construct(*first, dest);
-        }
-    }
-
-    // Construct elements from the range [first, last) into contiguous memory range pointed to by dest
-    void construct_range(iterator first, iterator last, pointer dest)
     {
         for (; first != last; ++first, ++dest)
         {
