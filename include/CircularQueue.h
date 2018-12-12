@@ -24,8 +24,8 @@ public:
     {
     }
 
-    explicit CircularQueueIterator(CircularQueue<value_type>* pCircularQueue, pointer pElement)
-        : m_pCircularQueue(pCircularQueue)
+    explicit CircularQueueIterator(const CircularQueue<value_type>* pCircularQueue, pointer pElement)
+        : m_pCircularQueue(const_cast<CircularQueue<value_type>*>(pCircularQueue))
         , m_pElement(pElement)
     {
     }
@@ -67,21 +67,12 @@ public:
     reference operator*() const { return *m_pElement; }
     pointer operator->() const { return m_pElement; }
 
+    friend bool operator==(const CircularQueueIterator& lhs, const CircularQueueIterator& rhs) { return lhs.m_pElement == rhs.m_pElement; }
+    friend bool operator!=(const CircularQueueIterator& lhs, const CircularQueueIterator& rhs) { return !(lhs == rhs); }
+
     CircularQueue<value_type>* m_pCircularQueue = nullptr;
     pointer m_pElement = nullptr;
 };
-
-template <typename T, typename PointerA, typename RefA, typename PointerB, typename RefB>
-bool operator==(const CircularQueueIterator<T, PointerA, RefA>& lhs, const CircularQueueIterator<T, PointerB, RefB>& rhs)
-{
-    return lhs.m_pElement == rhs.m_pElement;
-}
-
-template <typename T, typename PointerA, typename RefA, typename PointerB, typename RefB>
-bool operator!=(const CircularQueueIterator<T, PointerA, RefA>& lhs, const CircularQueueIterator<T, PointerB, RefB>& rhs)
-{
-    return !(lhs == rhs);
-}
 
 // Fixed size circular queue
 template <typename T>
@@ -157,16 +148,16 @@ public:
 
     // Returns an iterator pointing to the first element in the queue
     iterator begin() noexcept { return iterator(this, head()); }
-    const_iterator begin() const noexcept { return const_iterator(const_cast<CircularQueue*>(this), head()); }
-    const_iterator cbegin() const noexcept { return const_cast<const CircularQueue&>(*this).begin(); }
+    const_iterator begin() const noexcept { return const_iterator(this, head()); }
+    const_iterator cbegin() const noexcept { return begin(); }
 
     // Returns whether the queue is empty
     bool empty() const noexcept { return size() == 0; }
 
     // Returns an iterator pointing to the past-the-end element in the queue
     iterator end() noexcept { return iterator(this, next(tail())); }
-    const_iterator end() const noexcept { return const_iterator(const_cast<CircularQueue*>(this), next(tail())); }
-    const_iterator cend() const noexcept { return const_cast<const CircularQueue&>(*this).end(); }
+    const_iterator end() const noexcept { return const_iterator(this, next(tail())); }
+    const_iterator cend() const noexcept { return end(); }
 
     // Returns a reference to the first element in the queue
     reference front() { return *head(); }

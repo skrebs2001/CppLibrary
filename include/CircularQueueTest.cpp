@@ -351,6 +351,26 @@ static void DoIteratorTests()
     assert(q.begin() != q.cend());
     assert(q.cbegin() != q.end());
     assert(q.cbegin() != q.cend());
+
+    // Copy assign, non-const
+    CircularQueue<int>::iterator i;
+    i = q.begin();
+
+    // Copy assign, const
+    CircularQueue<int>::const_iterator iconst;
+    iconst = q.cbegin();
+
+    // Copy assign, non-const to const
+    iconst = i;
+
+    // Copy construct, non-const
+    CircularQueue<int>::iterator icopy = i;
+
+    // Copy construct, const
+    CircularQueue<int>::const_iterator icopyconst = iconst;
+
+    // Copy construct, non-const from const
+    CircularQueue<int>::const_iterator icopyconst2 = i;
 }
 
 static void DoIteratorTraitsTests()
