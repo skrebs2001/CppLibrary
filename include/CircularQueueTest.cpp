@@ -339,38 +339,131 @@ static void DoNonTrivialObjectTests()
     iDummy->m_c = 'g';
 }
 
-static void DoIteratorTests()
+template <typename T>
+static void DoIteratorTest()
 {
-    CircularQueue<int> q(5);
+    CircularQueue<T> q(5);
+
+    // Mixed equality tests
     assert(q.begin() == q.end());
     assert(q.begin() == q.cend());
     assert(q.cbegin() == q.end());
     assert(q.cbegin() == q.cend());
-    q.push(1);
+
+    T t{};
+    q.push(t);
+    q.push(t);
+    q.push(t);
+
+    // Mixed inequality tests
     assert(q.begin() != q.end());
     assert(q.begin() != q.cend());
     assert(q.cbegin() != q.end());
     assert(q.cbegin() != q.cend());
 
     // Copy assign, non-const
-    CircularQueue<int>::iterator i;
-    i = q.begin();
+    typename CircularQueue<T>::iterator inonconst;
+    inonconst = q.begin();
 
     // Copy assign, const
-    CircularQueue<int>::const_iterator iconst;
+    typename CircularQueue<T>::const_iterator iconst;
     iconst = q.cbegin();
 
     // Copy assign, non-const to const
-    iconst = i;
+    iconst = inonconst;
 
     // Copy construct, non-const
-    CircularQueue<int>::iterator icopy = i;
+    typename CircularQueue<T>::iterator inonconstcopy = inonconst;
 
     // Copy construct, const
-    CircularQueue<int>::const_iterator icopyconst = iconst;
+    typename CircularQueue<T>::const_iterator iconstcopy = iconst;
 
-    // Copy construct, non-const from const
-    CircularQueue<int>::const_iterator icopyconst2 = i;
+    // Copy construct, const from non-const
+    typename CircularQueue<T>::const_iterator iconstcopy2 = inonconst;
+
+    // increment, decrement, dereference non-const iterator
+    {
+        auto i = q.begin();
+        ++i;
+        i++;
+        ++i;
+        assert(i == q.end());
+        --i;
+        i--;
+        --i;
+        assert(i == q.begin());
+        t = *i;
+        *i = t;
+    }
+
+    // increment, decrement, dereference const iterator
+    {
+        auto ci = q.cbegin();
+        ++ci;
+        ci++;
+        ++ci;
+        assert(ci == q.cend());
+        --ci;
+        ci--;
+        --ci;
+        assert(ci == q.cbegin());
+        t = *ci;
+    }
+}
+
+static void DoIteratorArrowTest()
+{
+    CircularQueue<TrivialType> q(5);
+    TrivialType t;
+    q.push(t);
+    auto i = q.begin();
+    *i = t;
+    i->c = 'f';
+}
+
+template <template <typename T, typename Alloc = std::allocator<T> > typename SequenceContainer>
+static void DoSTDContainerIteratorTest()
+{
+    DoIteratorTest<SequenceContainer<int> >();
+    DoIteratorTest<SequenceContainer<TrivialType> >();
+    DoIteratorTest<SequenceContainer<DerivedTrivialType> >();
+    DoIteratorTest<SequenceContainer<NonTrivialType> >();
+}
+
+template <template <typename T, typename Allocator = EASTLAllocatorType> typename SequenceContainer>
+static void DoEASTLContainerIteratorTest()
+{
+    DoIteratorTest<SequenceContainer<int> >();
+    DoIteratorTest<SequenceContainer<TrivialType> >();
+    DoIteratorTest<SequenceContainer<DerivedTrivialType> >();
+    DoIteratorTest<SequenceContainer<NonTrivialType> >();
+}
+
+static void DoIteratorTests()
+{
+    DoIteratorTest<int8_t>();
+    DoIteratorTest<uint8_t>();
+    DoIteratorTest<int16_t>();
+    DoIteratorTest<uint16_t>();
+    DoIteratorTest<int32_t>();
+    DoIteratorTest<uint32_t>();
+    DoIteratorTest<int64_t>();
+    DoIteratorTest<uint64_t>();
+    DoIteratorTest<float>();
+    DoIteratorTest<double>();
+    DoIteratorTest<long double>();
+    DoIteratorTest<TrivialType>();
+    DoIteratorTest<DerivedTrivialType>();
+    DoIteratorTest<NonTrivialType>();
+
+    DoIteratorArrowTest();
+
+    DoSTDContainerIteratorTest<std::vector>();
+    DoSTDContainerIteratorTest<std::list>();
+    DoSTDContainerIteratorTest<std::deque>();
+
+    DoEASTLContainerIteratorTest<eastl::vector>();
+    DoEASTLContainerIteratorTest<eastl::list>();
 }
 
 static void DoIteratorTraitsTests()
@@ -566,13 +659,6 @@ static void DoResizeTests()
         test.push(30);
         test.set_capacity(10);
     }
-
-    {
-        CircularQueue<CircularQueue<T> > nestedQ(5);
-        CircularQueue<T> innerQ(3);
-
-        nestedQ.push(innerQ);
-    }
 }
 
 static void DoSwapTests()
@@ -599,24 +685,181 @@ static void DoSwapTests()
     assert(q2 == q1Copy);
 }
 
-template <typename Val, template <typename T, typename Alloc = std::allocator<T> > typename Container>
-static void DoSequenceContainerTest()
+// Test sequence container of queue
+template <typename SequenceContainer>
+static void DoGenericSequenceContainerTest()
 {
-    Container<CircularQueue<Val> > cQ;
+    using Val = typename SequenceContainer::value_type::value_type;
+
+    // Instantiate sequence container of queue of Val elements
+    SequenceContainer cQ;
     auto q = make_queue<Val>();
     cQ.push_back(q);
     cQ.push_back(make_queue<Val>());
+    cQ.push_back(q);
     auto copy_cQ{ cQ };
     assert(cQ == copy_cQ);
 }
 
-template <template <typename T, typename Alloc = std::allocator<T> > typename Container>
-static void DoSequenceContainerTests()
+// Test queue of sequence container
+template <typename Queue>
+static void DoGenericQueueContainerTest()
 {
-    DoSequenceContainerTest<int, Container>();
-    DoSequenceContainerTest<TrivialType, Container>();
-    DoSequenceContainerTest<DerivedTrivialType, Container>();
-    DoSequenceContainerTest<NonTrivialType, Container>();
+    using SequenceContainer = typename Queue::value_type;
+
+    // Instantiate queue of container of Val elements
+    Queue qC(5);
+    SequenceContainer c(3);
+    qC.push(c);
+    qC.push(SequenceContainer{ 4 });
+    qC.push(c);
+    auto copy_qC{ qC };
+    assert(qC == copy_qC);
+}
+
+template <template <typename T, typename Alloc = std::allocator<T> > typename SequenceContainer>
+static void DoSTDSequenceContainerTests()
+{
+    DoGenericSequenceContainerTest<SequenceContainer<CircularQueue<int> > >();
+    DoGenericSequenceContainerTest<SequenceContainer<CircularQueue<TrivialType> > >();
+    DoGenericSequenceContainerTest<SequenceContainer<CircularQueue<DerivedTrivialType> > >();
+    DoGenericSequenceContainerTest<SequenceContainer<CircularQueue<NonTrivialType> > >();
+
+    DoGenericQueueContainerTest<CircularQueue<SequenceContainer<int> > >();
+    DoGenericQueueContainerTest<CircularQueue<SequenceContainer<TrivialType> > >();
+    DoGenericQueueContainerTest<CircularQueue<SequenceContainer<DerivedTrivialType> > >();
+    DoGenericQueueContainerTest<CircularQueue<SequenceContainer<NonTrivialType> > >();
+}
+
+template <template <typename T, typename Allocator = EASTLAllocatorType> typename SequenceContainer>
+static void DoEASTLSequenceContainerTests()
+{
+    DoGenericSequenceContainerTest<SequenceContainer<CircularQueue<int> > >();
+    DoGenericSequenceContainerTest<SequenceContainer<CircularQueue<TrivialType> > >();
+    DoGenericSequenceContainerTest<SequenceContainer<CircularQueue<DerivedTrivialType> > >();
+    DoGenericSequenceContainerTest<SequenceContainer<CircularQueue<NonTrivialType> > >();
+
+    DoGenericQueueContainerTest<CircularQueue<SequenceContainer<int> > >();
+    DoGenericQueueContainerTest<CircularQueue<SequenceContainer<TrivialType> > >();
+    DoGenericQueueContainerTest<CircularQueue<SequenceContainer<DerivedTrivialType> > >();
+    DoGenericQueueContainerTest<CircularQueue<SequenceContainer<NonTrivialType> > >();
+}
+
+template <typename T>
+void DoNestedQueueTest()
+{
+    CircularQueue<CircularQueue<T> > nestedQ(5);
+    auto iQ = make_queue<T>();
+    nestedQ.push(iQ);
+    nestedQ.push(iQ);
+    nestedQ.push(iQ);
+
+    eastl::wstring s;
+    assert(s.comparei(L"stepper") == 0);
+
+    // std  std  std
+    {
+        CircularQueue<std::vector<CircularQueue<std::list<std::string> > > > q(5);
+        std::list<std::string> l(5);
+        CircularQueue<std::list<std::string> > ql(5);
+        ql.push(l);
+        std::vector<CircularQueue<std::list<std::string> > > vql;
+        vql.push_back(ql);
+        q.push(vql);
+        auto copy_q{ q };
+        assert(q == copy_q);
+    }
+
+    // std  std  eastl
+    {
+        CircularQueue<std::vector<CircularQueue<std::list<eastl::string> > > > q(5);
+        std::list<eastl::string> l(5);
+        CircularQueue<std::list<eastl::string> > ql(5);
+        ql.push(l);
+        std::vector<CircularQueue<std::list<eastl::string> > > vql;
+        vql.push_back(ql);
+        q.push(vql);
+        auto copy_q{ q };
+        assert(q == copy_q);
+    }
+
+    // std eastl std
+    {
+        CircularQueue<std::vector<CircularQueue<eastl::list<std::string> > > > q(5);
+        eastl::list<std::string> l(5);
+        CircularQueue<eastl::list<std::string> > ql(5);
+        ql.push(l);
+        std::vector<CircularQueue<eastl::list<std::string> > > vql;
+        vql.push_back(ql);
+        q.push(vql);
+        auto copy_q{ q };
+        assert(q == copy_q);
+    }
+
+    // std eastl eastl
+    {
+        CircularQueue<std::vector<CircularQueue<eastl::list<eastl::string> > > > q(5);
+        eastl::list<eastl::string> l(5);
+        CircularQueue<eastl::list<eastl::string> > ql(5);
+        ql.push(l);
+        std::vector<CircularQueue<eastl::list<eastl::string> > > vql;
+        vql.push_back(ql);
+        q.push(vql);
+        auto copy_q{ q };
+        assert(q == copy_q);
+    }
+
+    // eastl  std  std
+    //{
+    //    CircularQueue<eastl::vector<CircularQueue<std::list<std::string> > > > q(5);
+    //    std::list<std::string> l(5);
+    //    CircularQueue<std::list<std::string> > ql(5);
+    //    ql.push(l);
+    //    eastl::vector<CircularQueue<std::list<std::string> > > vql;
+    //    vql.push_back(ql);
+    //    q.push(vql);
+    //    auto copy_q{ q };
+    //    assert(q == copy_q);
+    //}
+
+    // eastl  std  eastl
+    //{
+    //    CircularQueue<eastl::vector<CircularQueue<std::list<eastl::string> > > > q(5);
+    //    std::list<eastl::string> l(5);
+    //    CircularQueue<std::list<eastl::string> > ql(5);
+    //    ql.push(l);
+    //    eastl::vector<CircularQueue<std::list<eastl::string> > > vql;
+    //    vql.push_back(ql);
+    //    q.push(vql);
+    //    auto copy_q{ q };
+    //    assert(q == copy_q);
+    //}
+
+    // eastl eastl std
+    //{
+    //    CircularQueue<eastl::vector<CircularQueue<eastl::list<std::string> > > > q(5);
+    //    eastl::list<std::string> l(5);
+    //    CircularQueue<eastl::list<std::string> > ql(5);
+    //    ql.push(l);
+    //    eastl::vector<CircularQueue<eastl::list<std::string> > > vql;
+    //    vql.push_back(ql);
+    //    q.push(vql);
+    //    auto copy_q{ q };
+    //    assert(q == copy_q);
+    //}
+
+    // eastl eastl eastl
+    {
+        CircularQueue<eastl::vector<CircularQueue<eastl::list<eastl::string> > > > q(5);
+        eastl::list<eastl::string> l(5);
+        CircularQueue<eastl::list<eastl::string> > ql(5);
+        ql.push(l);
+        eastl::vector<CircularQueue<eastl::list<eastl::string> > > vql;
+        vql.push_back(ql);
+        q.push(vql);
+        auto copy_q{ q };
+        assert(q == copy_q);
+    }
 }
 
 void RunCircularQueueTest()
@@ -648,9 +891,14 @@ void RunCircularQueueTest()
     DoSwapTests();
     DoResizeTests<int>();
 
-    DoSequenceContainerTests<std::vector>();
-    DoSequenceContainerTests<std::list>();
-    DoSequenceContainerTests<std::deque>();
+    DoSTDSequenceContainerTests<std::vector>();
+    DoSTDSequenceContainerTests<std::list>();
+    DoSTDSequenceContainerTests<std::deque>();
+
+    DoEASTLSequenceContainerTests<eastl::vector>();
+    DoEASTLSequenceContainerTests<eastl::list>();
+
+    DoNestedQueueTest<int>();
 }
 
 }  // namespace CircularQueueTest
