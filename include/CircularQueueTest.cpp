@@ -754,9 +754,6 @@ void DoNestedQueueTest()
     nestedQ.push(iQ);
     nestedQ.push(iQ);
 
-    eastl::wstring s;
-    assert(s.comparei(L"stepper") == 0);
-
     // std  std  std
     {
         CircularQueue<std::vector<CircularQueue<std::list<std::string> > > > q(5);

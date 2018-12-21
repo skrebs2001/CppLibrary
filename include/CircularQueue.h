@@ -273,11 +273,6 @@ public:
 
 private:
     template <typename Val>
-    struct TriviallyCopyable : std::is_trivially_copyable<typename std::remove_reference<Val>::type>
-    {
-    };
-
-    template <typename Val>
     void add(Val&& val)
     {
         if (full()) pop();
@@ -298,14 +293,7 @@ private:
 
     // Construct a single element into memory pointed to by dest
     template <typename Val>
-    typename std::enable_if<TriviallyCopyable<Val>::value>::type construct(Val&& val, pointer dest)
-    {
-        *dest = val;
-    }
-
-    // Construct a single element into memory pointed to by dest
-    template <typename Val>
-    typename std::enable_if<!TriviallyCopyable<Val>::value>::type construct(Val&& val, pointer dest)
+    void construct(Val&& val, pointer dest)
     {
         ::new (dest) value_type(std::forward<Val>(val));
     }
