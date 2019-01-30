@@ -53,6 +53,15 @@ static void process_queue(CircularQueue<T> q)
 template <typename T, typename = typename std::enable_if<is_numeric<T>::value>::type>
 static void DoArithmeticTests()
 {
+    {
+        // X u
+        CircularQueue<T> test;
+        assert(test.empty());
+
+        // X()
+        assert(CircularQueue<T>().empty());
+    }
+
     CircularQueue<T> test(5);
     assert(test.max_size() > 0);
     assert(test.begin() == test.end());
@@ -78,6 +87,23 @@ static void DoArithmeticTests()
     assert(test.size() == 4);
     assert(test.back() == 5);
     assert(test.front() == 2);
+
+    {
+        // X(a)
+        assert(test == CircularQueue<T>(test));
+    }
+
+    {
+        // X u(a)
+        CircularQueue<T> u(test);
+        assert(u == test);
+    }
+
+    {
+        // X u = a
+        CircularQueue<T> u = test;
+        assert(u == test);
+    }
 
     // Copy construct
     auto testCopy(test);
@@ -859,8 +885,70 @@ void DoNestedQueueTest()
     }
 }
 
+static eastl::wstring wsEASTLmessage = L"TestMessage";
+static std::wstring wsSTDmessage = L"TestMessage";
+
+static eastl::wstring get_EASTL_message()
+{
+    return wsEASTLmessage;
+}
+
+static std::wstring get_STD_message()
+{
+    return wsSTDmessage;
+}
+
+struct MyFoo
+{
+    int m_i = 0;
+    double m_d = 0.0;
+
+    MyFoo() = default;
+    MyFoo(int i, double d) : m_i(i), m_d(d) {}
+
+    MyFoo(MyFoo&& other) noexcept
+    {
+        m_i = other.m_i;
+        m_d = other.m_d;        
+    }
+};
+
+static MyFoo get_my_foo()
+{
+    MyFoo f(5, 3.14);
+    return f;
+
+    //return MyFoo(5, 3.14);
+}
+
 void RunCircularQueueTest()
 {
+    {
+        auto mf{ get_my_foo() };
+    }
+
+    {
+        eastl::wstring msg;
+        get_EASTL_message().swap(msg);        
+    }
+
+    {
+        std::wstring msg;
+        get_STD_message().swap(msg);
+    }
+
+    {
+        auto msg{ get_EASTL_message() };
+    }
+
+    {
+        auto msg{ get_STD_message() };
+    }
+
+    {
+        auto msg = get_STD_message();
+    }
+    
     DoArithmeticTests<int8_t>();
     DoArithmeticTests<uint8_t>();
     DoArithmeticTests<int16_t>();
