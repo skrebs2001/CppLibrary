@@ -1,4 +1,5 @@
 #pragma once
+#include "IteratorTraits.h"
 #include "Range.h"
 
 // clang-format off
@@ -22,7 +23,6 @@ public:
         : m_op(op)
         , m_end(end)
     {
-        //m_result = value_type{};
     }
 
     // Required by Iterator
